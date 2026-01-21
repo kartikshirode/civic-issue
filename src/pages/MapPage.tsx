@@ -1,11 +1,12 @@
 import PageLayout from "@/components/Layout/PageLayout";
 import { Card } from "@/components/ui/card";
-import { mockIssues, fetchIssues } from "@/data/mockData";
+import { apiGetIssues, IssueRecord } from "@/services/api";
 import { useEffect, useState } from "react";
 import { Issue } from "@/types";
-import { MapPin } from "lucide-react";
+import { MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { IndianState } from "@/types/location";
 
 const MapPage = () => {
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -15,11 +16,22 @@ const MapPage = () => {
     const getIssues = async () => {
       try {
         setLoading(true);
-        const fetchedIssues = await fetchIssues();
+        const fetchedIssues = await apiGetIssues();
         
         // Convert fetched issues to match our Issue type
-        const formattedIssues = fetchedIssues.map((issue: any, index: number) => {
-          const id = issue.id || Object.keys(fetchedIssues)[index];
+        const formattedIssues = fetchedIssues.map((issue: IssueRecord, index: number) => {
+          const id = issue.id || `issue-${index}`;
+          
+          // Determine state from location
+          let state: IndianState = "Unknown";
+          const location = issue.location || '';
+          if (location.includes("Maharashtra") || location.includes("Mumbai") || location.includes("Pune")) {
+            state = "Maharashtra";
+          } else if (location.includes("Delhi")) {
+            state = "Delhi";
+          } else if (location.includes("Karnataka") || location.includes("Bangalore")) {
+            state = "Karnataka";
+          }
           
           return {
             id: id,
@@ -28,14 +40,26 @@ const MapPage = () => {
             category: issue.category,
             status: issue.status || "reported",
             priority: issue.priority || "medium",
-            location: {
+            location: issue.locationData ? {
+              lat: issue.locationData.lat,
+              lng: issue.locationData.lng,
+              address: issue.locationData.address,
+              state: (issue.locationData.state as IndianState) || state,
+              district: issue.locationData.district || '',
+              city: issue.locationData.city || '',
+              village: ''
+            } : {
               lat: 0,
               lng: 0,
-              address: issue.location
+              address: issue.location || "Unknown",
+              state,
+              district: '',
+              city: '',
+              village: ''
             },
             reportedBy: issue.reportedBy || "anonymous",
             reportedAt: new Date(issue.timestamp || Date.now()),
-            images: issue.image ? [`/${issue.image}`] : ["/placeholder.svg"],
+            images: issue.images?.length > 0 ? issue.images : ["/placeholder.svg"],
             duration: issue.duration || "Unknown",
             upvotes: issue.upvotes || 0,
             comments: []

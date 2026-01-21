@@ -1,10 +1,65 @@
 
 import PageLayout from "@/components/Layout/PageLayout";
 import IssuesList from "@/components/Issues/IssuesList";
-import { mockIssues } from "@/data/mockData";
-import { Megaphone, Filter, Search } from "lucide-react";
+import { useIssues } from "@/hooks/useApi";
+import { Megaphone, Filter, Search, Loader2 } from "lucide-react";
+import { Issue } from "@/types";
+import { IssueRecord } from "@/services/database";
+import { IndianState } from "@/types/location";
+
+// Helper to convert IssueRecord to Issue type
+const convertToIssue = (record: IssueRecord): Issue => {
+  const id = record.id || '';
+  let state: IndianState = "Unknown";
+  const location = record.location || '';
+  
+  if (location.includes("Maharashtra") || location.includes("Mumbai") || location.includes("Pune") || location.includes("Baramati")) {
+    state = "Maharashtra";
+  } else if (location.includes("Delhi")) {
+    state = "Delhi";
+  } else if (location.includes("Karnataka") || location.includes("Bangalore") || location.includes("Bengaluru")) {
+    state = "Karnataka";
+  }
+  
+  return {
+    id,
+    title: record.title,
+    description: record.description,
+    category: record.category,
+    status: record.status,
+    priority: record.priority,
+    location: record.locationData ? {
+      lat: record.locationData.lat,
+      lng: record.locationData.lng,
+      address: record.locationData.address,
+      state: (record.locationData.state as IndianState) || state,
+      district: record.locationData.district || '',
+      city: record.locationData.city || '',
+      village: ''
+    } : {
+      lat: 0,
+      lng: 0,
+      address: record.location,
+      state,
+      district: '',
+      city: '',
+      village: ''
+    },
+    reportedBy: record.reportedBy,
+    reportedAt: new Date(record.timestamp),
+    images: record.images.length > 0 ? record.images : ['/placeholder.svg'],
+    duration: record.duration,
+    upvotes: record.upvotes,
+    comments: []
+  };
+};
 
 const IssuesPage = () => {
+  const { issues: issueRecords, loading, error } = useIssues({ realtime: true });
+  
+  // Convert IssueRecords to Issues for the component
+  const issues = issueRecords.map(convertToIssue);
+  
   return (
     <PageLayout>
       <div className="civic-container py-8">
@@ -37,22 +92,47 @@ const IssuesPage = () => {
           </div>
         </div>
         
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Issues', value: mockIssues.length, color: 'bg-blue-50 text-blue-600' },
-            { label: 'Reported', value: mockIssues.filter(i => i.status === 'reported').length, color: 'bg-amber-50 text-amber-600' },
-            { label: 'In Progress', value: mockIssues.filter(i => i.status === 'in-progress').length, color: 'bg-purple-50 text-purple-600' },
-            { label: 'Resolved', value: mockIssues.filter(i => i.status === 'resolved').length, color: 'bg-green-50 text-green-600' },
-          ].map((stat, index) => (
-            <div key={index} className={`${stat.color} rounded-xl p-4 text-center transition-transform hover:scale-105 cursor-default`}>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="text-sm opacity-80">{stat.label}</div>
-            </div>
-          ))}
-        </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-[#FF7722]" />
+            <span className="ml-3 text-gray-600">Loading issues...</span>
+          </div>
+        )}
         
-        <IssuesList issues={mockIssues} />
+        {/* Error State */}
+        {error && (
+          <div className="text-center py-12">
+            <p className="text-red-500 mb-4">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="text-[#FF7722] underline"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+        
+        {/* Quick Stats */}
+        {!loading && !error && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {[
+                { label: 'Total Issues', value: issues.length, color: 'bg-blue-50 text-blue-600' },
+                { label: 'Reported', value: issues.filter(i => i.status === 'reported').length, color: 'bg-amber-50 text-amber-600' },
+                { label: 'In Progress', value: issues.filter(i => i.status === 'in-progress').length, color: 'bg-purple-50 text-purple-600' },
+                { label: 'Resolved', value: issues.filter(i => i.status === 'resolved').length, color: 'bg-green-50 text-green-600' },
+              ].map((stat, index) => (
+                <div key={index} className={`${stat.color} rounded-xl p-4 text-center transition-transform hover:scale-105 cursor-default`}>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <div className="text-sm opacity-80">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+            
+            <IssuesList issues={issues} />
+          </>
+        )}
       </div>
     </PageLayout>
   );

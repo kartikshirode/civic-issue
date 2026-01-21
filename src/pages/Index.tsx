@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import PageLayout from "@/components/Layout/PageLayout";
 import IssueCard from "@/components/Issues/IssueCard";
-import { fetchIssues } from "@/data/mockData";
+import { apiGetIssues, IssueRecord } from "@/services/api";
 import { MapPin, Camera, Clock, ArrowRight, Map, AlertCircle, Users, CheckCircle, TrendingUp, Shield, Megaphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Issue } from "@/types";
@@ -21,33 +21,29 @@ const Index = () => {
       try {
         setLoading(true);
         setError(null);
-        const fetchedIssues = await fetchIssues();
+        const fetchedIssues = await apiGetIssues();
         
         // Convert fetched issues to match our Issue type
-        const formattedIssues = fetchedIssues.map((issue: any, index: number) => {
+        const formattedIssues = fetchedIssues.map((issue: IssueRecord, index: number) => {
           const id = issue.id || `issue-${index}`;
           
           // Properly handle image paths
           let imagePaths: string[] = [];
-          if (issue.image) {
-            // Check if image path already has the correct format
-            const imagePath = issue.image.startsWith('/') ? issue.image : `/${issue.image}`;
-            imagePaths = [imagePath];
+          if (issue.images && issue.images.length > 0) {
+            imagePaths = issue.images;
           } else {
             imagePaths = ["/placeholder.svg"];
           }
           
           // Determine the state from location or default to "Unknown" (which is a valid IndianState)
           let state: IndianState = "Unknown";
-          if (issue.location) {
-            if (issue.location.includes("Mumbai") || issue.location.includes("Pune") || issue.location.includes("Baramati")) {
-              state = "Maharashtra";
-            } else if (issue.location.includes("Delhi")) {
-              state = "Delhi";
-            } else if (issue.location.includes("Bangalore") || issue.location.includes("Bengaluru")) {
-              state = "Karnataka";
-            }
-            // Additional state detection can be added here
+          const location = issue.location || '';
+          if (location.includes("Mumbai") || location.includes("Pune") || location.includes("Baramati") || location.includes("Maharashtra")) {
+            state = "Maharashtra";
+          } else if (location.includes("Delhi")) {
+            state = "Delhi";
+          } else if (location.includes("Bangalore") || location.includes("Bengaluru") || location.includes("Karnataka")) {
+            state = "Karnataka";
           }
           
           return {
@@ -55,13 +51,21 @@ const Index = () => {
             title: issue.title || "Untitled Issue",
             description: issue.description || "No description provided",
             category: issue.category || "other",
-            status: issue.status || "reported", // Default status
-            priority: issue.priority || "medium", // Default priority
-            location: {
-              lat: 0, // Default coordinates
+            status: issue.status || "reported",
+            priority: issue.priority || "medium",
+            location: issue.locationData ? {
+              lat: issue.locationData.lat,
+              lng: issue.locationData.lng,
+              address: issue.locationData.address,
+              state: (issue.locationData.state as IndianState) || state,
+              district: issue.locationData.district || "Unknown",
+              city: issue.locationData.city || "Unknown",
+              village: ""
+            } : {
+              lat: 0,
               lng: 0,
               address: issue.location || "Unknown location",
-              state: state, // Using the determined state which is of type IndianState
+              state: state,
               district: "Unknown",
               city: "Unknown",
               village: ""
