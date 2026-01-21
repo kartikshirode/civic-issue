@@ -74,7 +74,7 @@ const IssuesPage = () => {
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
             <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
               <img 
-                src="/lovable-uploads/8316e3e4-2d31-4954-9239-ca4fa46be0cc.png" 
+                src="/uploads/logo.png" 
                 alt="BOL BHARAT Logo" 
                 className="h-20 w-20" 
               />
