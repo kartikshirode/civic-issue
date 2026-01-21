@@ -1,0 +1,275 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 39 100% 97%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 85%; /* Changed to grey (85% lightness) */
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 25 100% 56%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 142 76% 36%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 25 100% 56%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 201 100% 51%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 222 47% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 201 100% 51%;
+
+    --color-primary: #FF5722; /* Orange */
+    --color-secondary: #4CAF50; /* Green */
+    --color-background: #FFFFFF; /* White */
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 0 0% 40%; /* Changed to darker grey (40% lightness) */
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 25 100% 56%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 142 76% 36%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 25 100% 56%;
+    
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 201 100% 51%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 222 47% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 201 100% 51%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-primary);
+  }
+
+  button {
+    background-color: var(--color-primary);
+    color: var(--color-background);
+  }
+
+  button:hover {
+    background-color: var(--color-secondary);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom classes */
+@layer components {
+  .civic-container {
+    @apply container max-w-7xl px-4 sm:px-6 lg:px-8 mx-auto;
+  }
+  
+  .report-card {
+    @apply bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1;
+  }
+
+  /* Enhanced card styles */
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+  }
+
+  .card-interactive {
+    @apply cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-[#FF7722]/30;
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-[#FF7722] to-[#FF9F5A] bg-clip-text text-transparent;
+  }
+
+  /* Button enhancements */
+  .btn-glow {
+    @apply relative overflow-hidden;
+  }
+
+  .btn-glow::after {
+    content: '';
+    @apply absolute inset-0 bg-white/20 opacity-0 transition-opacity duration-300;
+  }
+
+  .btn-glow:hover::after {
+    @apply opacity-100;
+  }
+
+  /* Skeleton loading animation */
+  .skeleton-wave {
+    @apply relative overflow-hidden;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+  }
+
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Status badge styles */
+  .status-badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+  }
+
+  .status-reported {
+    @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+  }
+
+  .status-in-progress {
+    @apply bg-blue-100 text-blue-800 border border-blue-200;
+  }
+
+  .status-resolved {
+    @apply bg-green-100 text-green-800 border border-green-200;
+  }
+
+  .status-closed {
+    @apply bg-gray-100 text-gray-800 border border-gray-200;
+  }
+
+  /* Priority indicators */
+  .priority-indicator {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .priority-low {
+    @apply bg-blue-400;
+  }
+
+  .priority-medium {
+    @apply bg-yellow-400;
+  }
+
+  .priority-high {
+    @apply bg-orange-500;
+  }
+
+  .priority-urgent {
+    @apply bg-red-500 animate-pulse-soft;
+  }
+
+  /* Indian flag inspired styles */
+  .india-saffron {
+    @apply bg-[#FF9933] text-white;
+  }
+  
+  .india-white {
+    @apply bg-white text-[#1E3A4F];
+  }
+  
+  .india-green {
+    @apply bg-[#138808] text-white;
+  }
+  
+  .india-blue {
+    @apply text-[#0000CD];
+  }
+
+  .india-gradient {
+    @apply bg-gradient-to-r from-[#FF9933] via-white to-[#138808];
+  }
+
+  /* Section dividers */
+  .section-divider {
+    @apply relative;
+  }
+
+  .section-divider::before {
+    content: '';
+    @apply absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-[#FF7722] to-transparent;
+  }
+
+  /* Focus ring styles */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-[#FF7722] focus:ring-offset-2;
+  }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
