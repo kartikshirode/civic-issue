@@ -11,26 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Camera, MapPin, Clock, Upload, Trash2, FileText, AlertCircle, CheckCircle2, Loader2, Sparkles, Brain, AlertTriangle, Copy, Image, Wand2, Check, X } from "lucide-react";
 import { categoryOptions, durationOptions } from "@/data/mockData";
 import { IssueCategory } from "@/types";
-import { getDatabase, ref, push, set } from "firebase/database";
-import { db } from "@/lib/utils";
-import { analyzeImage, MLAnalysisResult } from "@/services/mlService";
-
-// Improved function to report an issue with better error handling
-const reportIssue = async (issueDetails: any) => {
-  if (!db) {
-    throw new Error("Firebase database is not initialized");
-  }
-  
-  try {
-    const issuesRef = ref(db, "issues");
-    const newIssueRef = push(issuesRef);
-    await set(newIssueRef, issueDetails);
-    return newIssueRef.key;
-  } catch (error) {
-    console.error("Error reporting issue:", error);
-    throw error;
-  }
-};
+import { apiCreateIssue, apiAnalyzeContent, MLAnalysisResult } from "@/services/api";
 
 const ReportForm = () => {
   const navigate = useNavigate();
@@ -77,45 +58,53 @@ const ReportForm = () => {
     setAppliedSuggestions(new Set());
     
     try {
-      const result = await analyzeImage(imageUrl, userDesc);
-      setMlResult(result);
-      setShowMlSuggestions(true);
+      // Use backend API for analysis
+      const response = await apiAnalyzeContent({
+        imageUrl,
+        description: userDesc,
+        location: location || undefined
+      });
       
-      // Auto-apply suggestions for empty fields
-      if (!title.trim() && result.suggestedTitle) {
-        setTitle(result.suggestedTitle);
-        setAppliedSuggestions(prev => new Set([...prev, 'title']));
+      if (response.success && response.analysis) {
+        const result = response.analysis;
+        setMlResult(result);
+        setShowMlSuggestions(true);
+        
+        // Auto-apply suggestions for empty fields
+        if (!title.trim() && result.suggestedTitle) {
+          setTitle(result.suggestedTitle);
+          setAppliedSuggestions(prev => new Set([...prev, 'title']));
+        }
+        if (!description.trim() && result.enhancedDescription) {
+          setDescription(result.enhancedDescription);
+          setAppliedSuggestions(prev => new Set([...prev, 'description']));
+        }
+        if (!category && result.predictedCategory) {
+          setCategory(result.predictedCategory);
+          setAppliedSuggestions(prev => new Set([...prev, 'category']));
+        }
+        if (!location.trim() && result.extractedLocation) {
+          setLocation(result.extractedLocation.address);
+          setAppliedSuggestions(prev => new Set([...prev, 'location']));
+        }
+        
+        // Show warnings if needed
+        if (result.isDuplicate) {
+          toast({
+            title: "Possible Duplicate Detected",
+            description: "A similar issue may have already been reported. Please check before submitting.",
+            variant: "destructive",
+          });
+        }
+        
+        if (result.isSpam) {
+          toast({
+            title: "Content Warning",
+            description: "Your description contains patterns that may be flagged. Please review.",
+            variant: "destructive",
+          });
+        }
       }
-      if (!description.trim() && result.enhancedDescription) {
-        setDescription(result.enhancedDescription);
-        setAppliedSuggestions(prev => new Set([...prev, 'description']));
-      }
-      if (!category && result.predictedCategory) {
-        setCategory(result.predictedCategory);
-        setAppliedSuggestions(prev => new Set([...prev, 'category']));
-      }
-      if (!location.trim() && result.extractedLocation) {
-        setLocation(result.extractedLocation.address);
-        setAppliedSuggestions(prev => new Set([...prev, 'location']));
-      }
-      
-      // Show warnings if needed
-      if (result.isDuplicate) {
-        toast({
-          title: "Possible Duplicate Detected",
-          description: "A similar issue may have already been reported. Please check before submitting.",
-          variant: "destructive",
-        });
-      }
-      
-      if (result.isSpam) {
-        toast({
-          title: "Content Warning",
-          description: "Your description contains patterns that may be flagged. Please review.",
-          variant: "destructive",
-        });
-      }
-      
     } catch (error) {
       console.error("ML analysis error:", error);
     } finally {
@@ -206,20 +195,20 @@ const ReportForm = () => {
     setIsSubmitting(true);
     
     try {
-      // Prepare issue data
-      const issueData = {
+      // Use the API to create issue with ML analysis
+      const response = await apiCreateIssue({
         title,
         description,
-        category,
+        category: category as IssueCategory,
         location,
         duration,
-        image: images.length > 0 ? images[0] : null, // For now, just use the first image
-        timestamp: new Date().toISOString(),
-        status: "reported",
-        upvotes: 0,
-      };
+        images,
+        reportedBy: 'anonymous'
+      });
       
-      const issueId = await reportIssue(issueData);
+      if (!response.success) {
+        throw new Error(response.error || "Failed to create issue");
+      }
       
       toast({
         title: "Issue reported successfully!",
@@ -228,7 +217,7 @@ const ReportForm = () => {
       
       // Redirect to the new issue page after a brief delay
       setTimeout(() => {
-        navigate(`/issues/${issueId}`);
+        navigate(`/issues/${response.issueId}`);
       }, 1500);
     } catch (error) {
       console.error("Error submitting issue:", error);
