@@ -40,6 +40,17 @@ export interface Issue {
   upvotes: number;
   comments: IssueComment[];
   updates?: IssueUpdate[];
+  
+  // Department routing
+  department?: string;           // Assigned government department
+  departmentShortName?: string;  // Short name for display
+  departmentEmail?: string;      // Department contact email
+  departmentPhone?: string;      // Department contact phone
+  departmentStatus?: 'pending' | 'acknowledged' | 'assigned' | 'working';
+  
+  // Community features
+  followers?: string[];          // User IDs following this issue
+  shares?: number;               // Number of shares
 }
 
 export interface IssueComment {

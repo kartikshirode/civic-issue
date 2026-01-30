@@ -8,20 +8,31 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, MapPin, Clock, Upload, Trash2, FileText, AlertCircle, CheckCircle2, Loader2, Sparkles, Brain, AlertTriangle, Copy, Image, Wand2, Check, X } from "lucide-react";
+import { Camera, MapPin, Clock, Upload, Trash2, FileText, AlertCircle, CheckCircle2, Loader2, Sparkles, Brain, AlertTriangle, Copy, Image, Wand2, Check, X, Cpu, Zap, ArrowLeft, ArrowRight, Building2, Phone, Mail } from "lucide-react";
 import { categoryOptions, durationOptions } from "@/data/mockData";
 import { IssueCategory } from "@/types";
 import { apiCreateIssue, apiAnalyzeContent, MLAnalysisResult } from "@/services/api";
+import { analyzeWithGemini, isGeminiConfigured } from "@/services/geminiService";
+import { getDepartmentFromPincode, Department } from "@/data/departments";
+import { IndianState } from "@/data/indiaLocations";
+
+type AIMode = 'local' | 'gemini';
+type ReportMode = 'choose' | 'image' | 'description';
 
 const ReportForm = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Step wizard state
+  const [reportMode, setReportMode] = useState<ReportMode>('choose');
+  const [currentStep, setCurrentStep] = useState(1); // 1: choose mode, 2: fill form
   
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<IssueCategory | "">("");
   const [location, setLocation] = useState("");
+  const [pincode, setPincode] = useState("");
   const [duration, setDuration] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [imageURL, setImageURL] = useState("");
@@ -29,11 +40,40 @@ const ReportForm = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [formProgress, setFormProgress] = useState(0);
   
+  // Department state
+  const [assignedDepartment, setAssignedDepartment] = useState<Department | null>(null);
+  const [detectedState, setDetectedState] = useState<IndianState | null>(null);
+  
+  // AI Mode state - auto-selected based on report mode
+  const [aiMode, setAiMode] = useState<AIMode>('local');
+  const [geminiAvailable] = useState(() => isGeminiConfigured());
+  
   // ML Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [mlResult, setMlResult] = useState<MLAnalysisResult | null>(null);
   const [showMlSuggestions, setShowMlSuggestions] = useState(false);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
+  
+  // Auto-select AI mode based on report mode
+  useEffect(() => {
+    if (reportMode === 'image') {
+      setAiMode('local'); // Local ML is better for image analysis
+    } else if (reportMode === 'description' && geminiAvailable) {
+      setAiMode('gemini'); // Gemini is better for text understanding
+    }
+  }, [reportMode, geminiAvailable]);
+  
+  // Update department when category or pincode changes
+  useEffect(() => {
+    if (category && pincode && pincode.length === 6) {
+      const { department, state } = getDepartmentFromPincode(category as IssueCategory, pincode);
+      setAssignedDepartment(department);
+      setDetectedState(state);
+    } else {
+      setAssignedDepartment(null);
+      setDetectedState(null);
+    }
+  }, [category, pincode]);
   
   // Calculate form progress
   const calculateProgress = () => {
@@ -42,31 +82,64 @@ const ReportForm = () => {
     if (description.trim()) filled++;
     if (category) filled++;
     if (location.trim()) filled++;
+    if (pincode.length === 6) filled++;
     if (duration) filled++;
-    return (filled / 5) * 100;
+    return (filled / 6) * 100;
   };
 
   // Update progress when form fields change
   useEffect(() => {
     setFormProgress(calculateProgress());
-  }, [title, description, category, location, duration]);
+  }, [title, description, category, location, pincode, duration]);
   
-  // Run ML analysis when image is added
-  const runMlAnalysis = async (imageUrl: string, userDesc: string) => {
+  // Run ML analysis when image is added - supports both local ML and Gemini
+  const runMlAnalysis = async (imageUrl: string, userDesc: string, mode: AIMode = aiMode) => {
     setIsAnalyzing(true);
     setShowMlSuggestions(false);
     setAppliedSuggestions(new Set());
     
     try {
-      // Use backend API for analysis
-      const response = await apiAnalyzeContent({
-        imageUrl,
-        description: userDesc,
-        location: location || undefined
-      });
+      let result: MLAnalysisResult | null = null;
       
-      if (response.success && response.analysis) {
-        const result = response.analysis;
+      if (mode === 'gemini' && geminiAvailable) {
+        // Use Gemini AI for analysis
+        try {
+          result = await analyzeWithGemini(imageUrl, userDesc, location || undefined);
+          toast({
+            title: "Gemini AI Analysis Complete",
+            description: "Form fields have been auto-filled using Gemini AI.",
+          });
+        } catch (geminiError) {
+          console.error("Gemini API error:", geminiError);
+          toast({
+            title: "Gemini AI Error",
+            description: geminiError instanceof Error ? geminiError.message : "Failed to analyze with Gemini. Falling back to local ML.",
+            variant: "destructive",
+          });
+          // Fallback to local ML
+          const response = await apiAnalyzeContent({
+            imageUrl,
+            description: userDesc,
+            location: location || undefined
+          });
+          if (response.success && response.analysis) {
+            result = response.analysis;
+          }
+        }
+      } else {
+        // Use local ML backend for analysis
+        const response = await apiAnalyzeContent({
+          imageUrl,
+          description: userDesc,
+          location: location || undefined
+        });
+        
+        if (response.success && response.analysis) {
+          result = response.analysis;
+        }
+      }
+      
+      if (result) {
         setMlResult(result);
         setShowMlSuggestions(true);
         
@@ -86,6 +159,10 @@ const ReportForm = () => {
         if (!location.trim() && result.extractedLocation) {
           setLocation(result.extractedLocation.address);
           setAppliedSuggestions(prev => new Set([...prev, 'location']));
+        }
+        if (!duration && result.suggestedDuration) {
+          setDuration(result.suggestedDuration);
+          setAppliedSuggestions(prev => new Set([...prev, 'duration']));
         }
         
         // Show warnings if needed
@@ -107,8 +184,29 @@ const ReportForm = () => {
       }
     } catch (error) {
       console.error("ML analysis error:", error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not analyze the image. Please fill in the form manually.",
+        variant: "destructive",
+      });
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+  
+  // Manual trigger for AI analysis
+  const triggerAiAnalysis = () => {
+    if (images.length > 0) {
+      runMlAnalysis(images[0], description);
+    } else if (description.trim()) {
+      // Text-only analysis
+      runMlAnalysis('', description);
+    } else {
+      toast({
+        title: "Nothing to analyze",
+        description: "Please add an image or description first.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -143,6 +241,7 @@ const ReportForm = () => {
     if (!description.trim()) newErrors.description = "Description is required";
     if (!category) newErrors.category = "Category is required";
     if (!location.trim()) newErrors.location = "Location is required";
+    if (!pincode || pincode.length !== 6) newErrors.pincode = "Valid 6-digit pincode is required";
     if (!duration) newErrors.duration = "Expected resolution time is required";
     
     setErrors(newErrors);
@@ -201,9 +300,15 @@ const ReportForm = () => {
         description,
         category: category as IssueCategory,
         location,
+        pincode,
         duration,
         images,
-        reportedBy: 'anonymous'
+        reportedBy: 'anonymous',
+        department: assignedDepartment?.name,
+        departmentShortName: assignedDepartment?.shortName,
+        departmentEmail: assignedDepartment?.email,
+        departmentPhone: assignedDepartment?.phone,
+        state: detectedState || undefined
       });
       
       if (!response.success) {
@@ -212,7 +317,9 @@ const ReportForm = () => {
       
       toast({
         title: "Issue reported successfully!",
-        description: "Thank you for reporting this issue to your community.",
+        description: assignedDepartment 
+          ? `Your complaint has been routed to ${assignedDepartment.shortName}.` 
+          : "Thank you for reporting this issue to your community.",
       });
       
       // Redirect to the new issue page after a brief delay
@@ -245,8 +352,150 @@ const ReportForm = () => {
     }
   };
   
+  // Handle mode selection and proceed to form
+  const handleModeSelect = (mode: 'image' | 'description') => {
+    setReportMode(mode);
+    setCurrentStep(2);
+    
+    toast({
+      title: mode === 'image' ? "Image Mode Selected" : "Description Mode Selected",
+      description: mode === 'image' 
+        ? "Upload an image and we'll use AI to analyze it." 
+        : "Describe your issue and Gemini AI will help fill the form.",
+    });
+  };
+  
+  // Go back to mode selection
+  const handleBackToModeSelect = () => {
+    setReportMode('choose');
+    setCurrentStep(1);
+    // Reset form
+    setTitle("");
+    setDescription("");
+    setCategory("");
+    setLocation("");
+    setPincode("");
+    setDuration("");
+    setImages([]);
+    setMlResult(null);
+    setShowMlSuggestions(false);
+    setAppliedSuggestions(new Set());
+  };
+  
+  // =========================================================================
+  // STEP 1: Choose Report Mode
+  // =========================================================================
+  if (currentStep === 1) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">How would you like to report?</h2>
+          <p className="text-gray-600">Choose how you want to start your complaint</p>
+        </div>
+        
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Image Upload Option */}
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 border-2 hover:border-blue-500 group"
+            onClick={() => handleModeSelect('image')}
+          >
+            <CardContent className="p-8 text-center">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Camera className="h-10 w-10 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Upload Image</h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Take or upload a photo of the issue. Our AI will analyze it automatically.
+              </p>
+              <div className="flex items-center justify-center gap-2 text-blue-600">
+                <Cpu className="h-4 w-4" />
+                <span className="text-sm font-medium">Uses Local ML Analysis</span>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Description Option */}
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 border-2 hover:border-purple-500 group"
+            onClick={() => handleModeSelect('description')}
+          >
+            <CardContent className="p-8 text-center">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <FileText className="h-10 w-10 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Describe Issue</h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Write about the problem in detail. Gemini AI will help fill the form.
+              </p>
+              <div className="flex items-center justify-center gap-2 text-purple-600">
+                <Zap className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {geminiAvailable ? "Uses Gemini AI" : "Gemini AI (Setup Required)"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="mt-8 text-center text-sm text-gray-500">
+          <p>Both methods support AI-powered auto-fill to make reporting faster</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // =========================================================================
+  // STEP 2: Report Form
+  // =========================================================================
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleBackToModeSelect}
+        className="mb-4 text-gray-600 hover:text-gray-900"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Change Report Mode
+      </Button>
+      
+      {/* Current Mode Indicator */}
+      <div className="mb-4 flex items-center gap-2">
+        <Badge 
+          variant="outline" 
+          className={reportMode === 'image' 
+            ? "border-blue-500 text-blue-600 bg-blue-50" 
+            : "border-purple-500 text-purple-600 bg-purple-50"
+          }
+        >
+          {reportMode === 'image' ? (
+            <>
+              <Camera className="h-3 w-3 mr-1" />
+              Image Mode
+            </>
+          ) : (
+            <>
+              <FileText className="h-3 w-3 mr-1" />
+              Description Mode
+            </>
+          )}
+        </Badge>
+        <Badge variant="outline" className="text-gray-600">
+          {aiMode === 'local' ? (
+            <>
+              <Cpu className="h-3 w-3 mr-1" />
+              Local ML
+            </>
+          ) : (
+            <>
+              <Zap className="h-3 w-3 mr-1" />
+              Gemini AI
+            </>
+          )}
+        </Badge>
+      </div>
+      
       {/* Progress Bar */}
       <div className="mb-6 md:mb-8">
         <div className="flex justify-between text-sm text-gray-500 mb-2">
@@ -260,6 +509,135 @@ const ReportForm = () => {
           />
         </div>
       </div>
+      
+      {/* Department Assignment Banner - Shows when category + pincode are set */}
+      {assignedDepartment && (
+        <Card className="mb-6 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-green-500 rounded-lg">
+                <Building2 className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-green-800 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Complaint Will Be Routed To:
+                </h4>
+                <p className="text-green-700 font-medium mt-1">{assignedDepartment.name}</p>
+                {detectedState && (
+                  <p className="text-sm text-green-600 mt-0.5">State: {detectedState}</p>
+                )}
+                <div className="flex flex-wrap gap-4 mt-2 text-sm text-green-600">
+                  {assignedDepartment.phone && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      {assignedDepartment.phone}
+                    </span>
+                  )}
+                  {assignedDepartment.email && (
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {assignedDepartment.email}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Mode Selector */}
+      <Card className="mb-6 border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50">
+        <CardContent className="py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-[#FF7722] to-[#FF9F5A] rounded-lg shadow-sm">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">AI Auto-Fill</h3>
+                <p className="text-xs text-gray-500">Choose how to analyze your issue</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* Local ML Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={`flex items-center gap-2 transition-all font-medium ${
+                  aiMode === 'local' 
+                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 shadow-md ring-2 ring-blue-300' 
+                    : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+                onClick={() => setAiMode('local')}
+              >
+                <Cpu className="h-4 w-4" />
+                <span className="hidden sm:inline">Local ML</span>
+                <span className="sm:hidden">ML</span>
+              </Button>
+              
+              {/* Gemini AI Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={`flex items-center gap-2 transition-all font-medium ${
+                  aiMode === 'gemini' 
+                    ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 shadow-md ring-2 ring-purple-300' 
+                    : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-purple-500 hover:text-purple-600 hover:bg-purple-50'
+                } ${!geminiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => geminiAvailable && setAiMode('gemini')}
+                disabled={!geminiAvailable}
+                title={!geminiAvailable ? 'Add VITE_GEMINI_API_KEY to .env to enable' : 'Use Google Gemini AI'}
+              >
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">Gemini AI</span>
+                <span className="sm:hidden">Gemini</span>
+                {!geminiAvailable && (
+                  <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 border-yellow-400 text-yellow-600 bg-yellow-50">
+                    Setup Required
+                  </Badge>
+                )}
+              </Button>
+              
+              {/* Manual Analyze Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 bg-[#FF7722] text-white border-[#FF7722] hover:bg-[#E56610] shadow-md font-medium"
+                onClick={triggerAiAnalysis}
+                disabled={isAnalyzing || (!images.length && !description.trim())}
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">Analyze</span>
+              </Button>
+            </div>
+          </div>
+          
+          {/* Mode Description */}
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            {aiMode === 'local' ? (
+              <p className="text-xs text-gray-500 flex items-center gap-2">
+                <Cpu className="h-3 w-3 text-blue-500" />
+                <span><strong>Local ML:</strong> Fast keyword-based analysis. Works offline, no API key needed.</span>
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 flex items-center gap-2">
+                <Zap className="h-3 w-3 text-purple-500" />
+                <span><strong>Gemini AI:</strong> Advanced image & text understanding. More accurate suggestions using Google AI.</span>
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ML Analysis Status */}
       {isAnalyzing && (
@@ -267,14 +645,31 @@ const ReportForm = () => {
           <CardContent className="py-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-[#FF7722]/10 rounded-lg">
-                <Brain className="h-5 w-5 text-[#FF7722] animate-pulse" />
+                {aiMode === 'gemini' ? (
+                  <Zap className="h-5 w-5 text-purple-600 animate-pulse" />
+                ) : (
+                  <Brain className="h-5 w-5 text-[#FF7722] animate-pulse" />
+                )}
               </div>
               <div className="flex-1">
                 <p className="font-medium text-gray-900 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#FF7722]" />
-                  AI is analyzing your image...
+                  {aiMode === 'gemini' ? (
+                    <>
+                      <Zap className="h-4 w-4 text-purple-600" />
+                      Gemini AI is analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 text-[#FF7722]" />
+                      Local ML is analyzing...
+                    </>
+                  )}
                 </p>
-                <p className="text-sm text-gray-500">Auto-filling form fields based on image content</p>
+                <p className="text-sm text-gray-500">
+                  {aiMode === 'gemini' 
+                    ? 'Using Google Gemini for advanced image understanding' 
+                    : 'Auto-filling form fields based on image content'}
+                </p>
               </div>
               <Loader2 className="h-5 w-5 text-[#FF7722] animate-spin" />
             </div>
@@ -284,12 +679,22 @@ const ReportForm = () => {
 
       {/* ML Suggestions Panel */}
       {showMlSuggestions && mlResult && !isAnalyzing && (
-        <Card className="mb-6 border-[#FF7722]/30 bg-gradient-to-br from-orange-50 to-amber-50 overflow-hidden">
-          <div className="bg-gradient-to-r from-[#FF7722] to-[#FF9F5A] px-4 py-2">
+        <Card className={`mb-6 overflow-hidden ${
+          aiMode === 'gemini' 
+            ? 'border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50' 
+            : 'border-[#FF7722]/30 bg-gradient-to-br from-orange-50 to-amber-50'
+        }`}>
+          <div className={`px-4 py-2 ${
+            aiMode === 'gemini'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
+              : 'bg-gradient-to-r from-[#FF7722] to-[#FF9F5A]'
+          }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-white">
-                <Sparkles className="h-4 w-4" />
-                <span className="font-semibold text-sm">AI Suggestions</span>
+                {aiMode === 'gemini' ? <Zap className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                <span className="font-semibold text-sm">
+                  {aiMode === 'gemini' ? 'Gemini AI Suggestions' : 'ML Suggestions'}
+                </span>
               </div>
               <Button
                 variant="ghost"
@@ -314,22 +719,24 @@ const ReportForm = () => {
               <span className="font-medium text-[#FF7722]">{Math.round(mlResult.categoryConfidence * 100)}%</span>
             </div>
 
-            {/* Image Quality */}
-            <div className="flex items-center gap-2 text-sm">
-              <Image className="h-4 w-4 text-gray-500" />
-              <span className="text-gray-600">Image Quality:</span>
-              <Badge 
-                variant="outline" 
-                className={`capitalize ${
-                  mlResult.imageQuality === 'excellent' ? 'border-green-500 text-green-600 bg-green-50' :
-                  mlResult.imageQuality === 'good' ? 'border-blue-500 text-blue-600 bg-blue-50' :
-                  mlResult.imageQuality === 'fair' ? 'border-yellow-500 text-yellow-600 bg-yellow-50' :
-                  'border-red-500 text-red-600 bg-red-50'
-                }`}
-              >
-                {mlResult.imageQuality}
-              </Badge>
-            </div>
+            {/* Image Quality - only show if we have an image */}
+            {images.length > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Image className="h-4 w-4 text-gray-500" />
+                <span className="text-gray-600">Image Quality:</span>
+                <Badge 
+                  variant="outline" 
+                  className={`capitalize ${
+                    mlResult.imageQuality === 'excellent' ? 'border-green-500 text-green-600 bg-green-50' :
+                    mlResult.imageQuality === 'good' ? 'border-blue-500 text-blue-600 bg-blue-50' :
+                    mlResult.imageQuality === 'fair' ? 'border-yellow-500 text-yellow-600 bg-yellow-50' :
+                    'border-red-500 text-red-600 bg-red-50'
+                  }`}
+                >
+                  {mlResult.imageQuality}
+                </Badge>
+              </div>
+            )}
 
             {/* Suggested fields - only show if not already applied */}
             <div className="space-y-3 pt-2 border-t border-orange-200">
@@ -552,6 +959,44 @@ const ReportForm = () => {
               </p>
             )}
             <p className="text-xs text-gray-400 mt-2">Include street name, landmarks, or area for better identification</p>
+          </CardContent>
+        </Card>
+        
+        {/* Pincode Input */}
+        <Card className={`transition-all duration-200 ${errors.pincode ? 'border-red-300 shadow-red-100' : 'hover:shadow-md'}`}>
+          <CardContent className="pt-6">
+            <Label htmlFor="pincode" className="text-base flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-indigo-100 rounded-lg">
+                <Building2 className="h-4 w-4 text-indigo-600" />
+              </div>
+              Pincode <span className="text-red-500">*</span>
+              {detectedState && (
+                <Badge variant="outline" className="ml-2 text-xs border-green-500 text-green-600 bg-green-50">
+                  {detectedState}
+                </Badge>
+              )}
+            </Label>
+            <Input
+              id="pincode"
+              placeholder="Enter 6-digit pincode (e.g., 411001)"
+              value={pincode}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                setPincode(value);
+              }}
+              className={`text-base ${errors.pincode ? "border-red-300" : ""}`}
+              disabled={isSubmitting}
+              maxLength={6}
+            />
+            {errors.pincode && (
+              <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {errors.pincode}
+              </p>
+            )}
+            <p className="text-xs text-gray-400 mt-2">
+              Pincode helps route your complaint to the correct state department
+            </p>
           </CardContent>
         </Card>
         

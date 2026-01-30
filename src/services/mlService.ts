@@ -36,6 +36,9 @@ export interface MLAnalysisResult {
   // Image quality
   imageQuality: 'poor' | 'fair' | 'good' | 'excellent';
   imageQualityScore: number;
+  
+  // Duration suggestion from text analysis
+  suggestedDuration?: string;
 }
 
 export interface HotspotPrediction {

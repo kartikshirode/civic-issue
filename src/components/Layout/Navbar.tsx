@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { MapPin, Menu, X, Megaphone } from "lucide-react";
+import { MapPin, Menu, X, Megaphone, Users } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useState, useEffect } from "react";
 
@@ -31,6 +31,7 @@ const Navbar = () => {
   const navLinks = [
     { path: '/', label: 'Home' },
     { path: '/issues', label: 'View Issues' },
+    { path: '/community', label: 'Community' },
     { path: '/map', label: 'Map View' },
     { path: '/about', label: 'About' },
   ];

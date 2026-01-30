@@ -52,9 +52,15 @@ export interface CreateIssueRequest {
   description: string;
   category: IssueCategory;
   location: string;
+  pincode?: string;
   duration: string;
   images: string[];
   reportedBy?: string;
+  department?: string;
+  departmentShortName?: string;
+  departmentEmail?: string;
+  departmentPhone?: string;
+  state?: string;
   locationData?: {
     lat: number;
     lng: number;
@@ -113,13 +119,20 @@ export async function apiCreateIssue(request: CreateIssueRequest): Promise<Creat
       status: 'reported',
       priority: 'medium',
       location: request.location,
+      pincode: request.pincode,
       locationData: request.locationData,
       images: request.images,
       duration: request.duration,
       reportedBy: request.reportedBy || 'anonymous',
       timestamp: new Date().toISOString(),
       upvotes: 0,
-      moderationStatus: 'pending'
+      moderationStatus: 'pending',
+      department: request.department,
+      departmentShortName: request.departmentShortName,
+      departmentEmail: request.departmentEmail,
+      departmentPhone: request.departmentPhone,
+      departmentStatus: request.department ? 'pending' : undefined,
+      state: request.state
     });
     
     // Run ML analysis if there's an image

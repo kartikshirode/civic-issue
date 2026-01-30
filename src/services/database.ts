@@ -5,7 +5,7 @@
 
 import { ref, push, set, get, update, remove, query, orderByChild, equalTo, limitToLast, onValue, off } from "firebase/database";
 import { db } from "@/lib/utils";
-import { Issue, IssueCategory, IssueStatus, IssuePriority } from "@/types";
+import { Issue, IssueCategory, IssueStatus, IssuePriority, GeoLocation } from "@/types";
 import { MLAnalysisResult, HotspotPrediction } from "./mlService";
 
 // =============================================================================
@@ -20,19 +20,21 @@ export interface IssueRecord {
   status: IssueStatus;
   priority: IssuePriority;
   location: string;
-  locationData?: {
-    lat: number;
-    lng: number;
-    address: string;
-    city?: string;
-    district?: string;
-    state?: string;
-  };
+  pincode?: string;
+  locationData?: GeoLocation;
   images: string[];
   duration: string;
   reportedBy: string;
   timestamp: string;
   upvotes: number;
+  
+  // Department routing
+  department?: string;
+  departmentShortName?: string;
+  departmentEmail?: string;
+  departmentPhone?: string;
+  departmentStatus?: 'pending' | 'acknowledged' | 'assigned' | 'working';
+  state?: string;
   
   // ML-related fields
   mlAnalysis?: MLAnalysisResult;

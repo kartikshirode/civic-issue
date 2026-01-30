@@ -1,0 +1,42 @@
+# Vercel Ignore File
+# Ignore unnecessary files during deployment
+
+# Development files
+.env.local
+.env.development
+.env*.local
+*.log
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__/
+coverage/
+
+# Documentation (keep README)
+docs/
+*.md
+!README.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Dependencies (Vercel installs fresh)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build cache
+.turbo/
+.cache/

@@ -10,6 +10,7 @@ import IssueDetail from "./pages/IssueDetail";
 import ReportPage from "./pages/ReportPage";
 import AboutPage from "./pages/AboutPage";
 import MapPage from "./pages/MapPage";
+import CommunityPage from "./pages/CommunityPage";
 
 // Create a new QueryClient instance
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => {
             <Route path="/issues" element={<IssuesPage />} />
             <Route path="/issues/:id" element={<IssueDetail />} />
             <Route path="/report" element={<ReportPage />} />
+            <Route path="/community" element={<CommunityPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/map" element={<MapPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
