@@ -510,131 +510,47 @@ const ReportForm = () => {
         </div>
       </div>
       
-      {/* Department Assignment Banner - Shows when category + pincode are set */}
-      {assignedDepartment && (
-        <Card className="mb-6 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardContent className="py-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-green-500 rounded-lg">
-                <Building2 className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-green-800 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Complaint Will Be Routed To:
-                </h4>
-                <p className="text-green-700 font-medium mt-1">{assignedDepartment.name}</p>
-                {detectedState && (
-                  <p className="text-sm text-green-600 mt-0.5">State: {detectedState}</p>
-                )}
-                <div className="flex flex-wrap gap-4 mt-2 text-sm text-green-600">
-                  {assignedDepartment.phone && (
-                    <span className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {assignedDepartment.phone}
-                    </span>
-                  )}
-                  {assignedDepartment.email && (
-                    <span className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {assignedDepartment.email}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Mode Selector */}
+      {/* AI Auto-Fill Card - Simplified, no model switching */}
       <Card className="mb-6 border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50">
         <CardContent className="py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-[#FF7722] to-[#FF9F5A] rounded-lg shadow-sm">
-                <Sparkles className="h-5 w-5 text-white" />
+              <div className={`p-2 rounded-lg shadow-sm ${
+                aiMode === 'gemini' 
+                  ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
+                  : 'bg-gradient-to-br from-blue-500 to-blue-600'
+              }`}>
+                {aiMode === 'gemini' ? (
+                  <Zap className="h-5 w-5 text-white" />
+                ) : (
+                  <Cpu className="h-5 w-5 text-white" />
+                )}
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">AI Auto-Fill</h3>
-                <p className="text-xs text-gray-500">Choose how to analyze your issue</p>
+                <p className="text-xs text-gray-500">
+                  {aiMode === 'gemini' 
+                    ? 'Using Gemini AI for text analysis' 
+                    : 'Using Local ML for image analysis'}
+                </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
-              {/* Local ML Button */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={`flex items-center gap-2 transition-all font-medium ${
-                  aiMode === 'local' 
-                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 shadow-md ring-2 ring-blue-300' 
-                    : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50'
-                }`}
-                onClick={() => setAiMode('local')}
-              >
-                <Cpu className="h-4 w-4" />
-                <span className="hidden sm:inline">Local ML</span>
-                <span className="sm:hidden">ML</span>
-              </Button>
-              
-              {/* Gemini AI Button */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={`flex items-center gap-2 transition-all font-medium ${
-                  aiMode === 'gemini' 
-                    ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 shadow-md ring-2 ring-purple-300' 
-                    : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-purple-500 hover:text-purple-600 hover:bg-purple-50'
-                } ${!geminiAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                onClick={() => geminiAvailable && setAiMode('gemini')}
-                disabled={!geminiAvailable}
-                title={!geminiAvailable ? 'Add VITE_GEMINI_API_KEY to .env to enable' : 'Use Google Gemini AI'}
-              >
-                <Zap className="h-4 w-4" />
-                <span className="hidden sm:inline">Gemini AI</span>
-                <span className="sm:hidden">Gemini</span>
-                {!geminiAvailable && (
-                  <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 border-yellow-400 text-yellow-600 bg-yellow-50">
-                    Setup Required
-                  </Badge>
-                )}
-              </Button>
-              
-              {/* Manual Analyze Button */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2 bg-[#FF7722] text-white border-[#FF7722] hover:bg-[#E56610] shadow-md font-medium"
-                onClick={triggerAiAnalysis}
-                disabled={isAnalyzing || (!images.length && !description.trim())}
-              >
-                {isAnalyzing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">Analyze</span>
-              </Button>
-            </div>
-          </div>
-          
-          {/* Mode Description */}
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            {aiMode === 'local' ? (
-              <p className="text-xs text-gray-500 flex items-center gap-2">
-                <Cpu className="h-3 w-3 text-blue-500" />
-                <span><strong>Local ML:</strong> Fast keyword-based analysis. Works offline, no API key needed.</span>
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 flex items-center gap-2">
-                <Zap className="h-3 w-3 text-purple-500" />
-                <span><strong>Gemini AI:</strong> Advanced image & text understanding. More accurate suggestions using Google AI.</span>
-              </p>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 bg-[#FF7722] text-white border-[#FF7722] hover:bg-[#E56610] shadow-md font-medium"
+              onClick={triggerAiAnalysis}
+              disabled={isAnalyzing || (!images.length && !description.trim())}
+            >
+              {isAnalyzing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+              <span>Analyze & Auto-Fill</span>
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -1116,6 +1032,43 @@ const ReportForm = () => {
           </CardContent>
         </Card>
         
+        {/* Department Routing Info - Shows at end when category + pincode are set */}
+        {assignedDepartment && (
+          <Card className="mb-4 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-green-500 rounded-lg">
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-green-800 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Your Complaint Will Be Routed To:
+                  </h4>
+                  <p className="text-green-700 font-medium mt-1">{assignedDepartment.name}</p>
+                  {detectedState && (
+                    <p className="text-sm text-green-600 mt-0.5">State: {detectedState}</p>
+                  )}
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-green-600">
+                    {assignedDepartment.phone && (
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        {assignedDepartment.phone}
+                      </span>
+                    )}
+                    {assignedDepartment.email && (
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {assignedDepartment.email}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Submit Button */}
         <div className="pt-4">
           <Button 
