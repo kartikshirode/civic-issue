@@ -101,19 +101,19 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="flex items-start gap-3 text-gray-400">
                 <Mail className="h-5 w-5 text-[#FF7722] flex-shrink-0 mt-0.5" />
-                <a href="mailto:mandarawagh90@gmail.com" className="hover:text-white transition-colors">
-                  mandarawagh90@gmail.com
+                <a href="mailto:kartikshirode123@gmail.com" className="hover:text-white transition-colors">
+                  kartikshirode123@gmail.com
                 </a>
               </li>
               <li className="flex items-start gap-3 text-gray-400">
                 <Phone className="h-5 w-5 text-[#FF7722] flex-shrink-0 mt-0.5" />
-                <a href="tel:+919604524079" className="hover:text-white transition-colors">
-                  +91 9604524079
+                <a href="tel:+919823376032" className="hover:text-white transition-colors">
+                  +91 9823376032
                 </a>
               </li>
               <li className="flex items-start gap-3 text-gray-400">
                 <MapPinned className="h-5 w-5 text-[#FF7722] flex-shrink-0 mt-0.5" />
-                <span>CESA FY</span>
+                <span>VP, Baramati</span>
               </li>
             </ul>
           </div>
