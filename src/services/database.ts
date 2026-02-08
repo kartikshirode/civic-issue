@@ -7,6 +7,7 @@ import { ref, push, set, get, update, remove, query, orderByChild, equalTo, limi
 import { db } from "@/lib/utils";
 import { Issue, IssueCategory, IssueStatus, IssuePriority, GeoLocation } from "@/types";
 import { MLAnalysisResult, HotspotPrediction } from "./mlService";
+import { mockIssues } from "@/data/mockData";
 
 // =============================================================================
 // Types
@@ -65,6 +66,64 @@ export interface AnalyticsEvent {
   type: 'issue_created' | 'issue_resolved' | 'ml_analysis' | 'duplicate_detected' | 'spam_detected' | 'hotspot_predicted';
   timestamp: string;
   data: Record<string, any>;
+}
+
+// =============================================================================
+// Database Seeding (Load dummy data on initialization)
+// =============================================================================
+
+/**
+ * Seed the database with mock issues if empty
+ * This ensures test data is available without manual setup
+ */
+export async function seedDatabaseIfEmpty(): Promise<void> {
+  try {
+    if (!db) {
+      console.warn("Database not initialized, skipping seed");
+      return;
+    }
+
+    const issuesRef = ref(db, "issues");
+    const snapshot = await get(issuesRef);
+
+    // Only seed if database is empty
+    if (snapshot.exists()) {
+      console.log("Database already has data, skipping seed");
+      return;
+    }
+
+    console.log("Seeding database with mock issues...");
+    
+    // Insert all mock issues
+    for (const issue of mockIssues) {
+      const newIssueRef = push(issuesRef);
+      
+      const issueRecord: IssueRecord = {
+        title: issue.title,
+        description: issue.description,
+        category: issue.category,
+        status: "reported",
+        priority: issue.priority,
+        location: issue.location.address || "",
+        pincode: issue.location.pincode,
+        locationData: issue.location,
+        images: issue.images,
+        duration: issue.duration,
+        reportedBy: issue.reportedBy,
+        timestamp: issue.reportedAt.toISOString(),
+        upvotes: issue.upvotes,
+        department: issue.department,
+        departmentShortName: issue.departmentShortName,
+        departmentStatus: "pending"
+      };
+
+      await set(newIssueRef, issueRecord);
+    }
+
+    console.log(`✅ Seeded ${mockIssues.length} mock issues successfully`);
+  } catch (error) {
+    console.error("Error seeding database:", error);
+  }
 }
 
 // =============================================================================
