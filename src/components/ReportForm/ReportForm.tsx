@@ -12,11 +12,11 @@ import { Camera, MapPin, Clock, Upload, Trash2, FileText, AlertCircle, CheckCirc
 import { categoryOptions, durationOptions } from "@/data/mockData";
 import { IssueCategory } from "@/types";
 import { apiCreateIssue, apiAnalyzeContent, MLAnalysisResult } from "@/services/api";
-import { analyzeWithGemini, isGeminiConfigured } from "@/services/geminiService";
+import { analyzeWithGemini, analyzeWithNvidia, isGeminiConfigured, isNvidiaConfigured } from "@/services/geminiService";
 import { getDepartmentFromPincode, Department } from "@/data/departments";
-import { IndianState } from "@/data/indiaLocations";
+import { IndianState } from "@/types/location";
 
-type AIMode = 'local' | 'gemini';
+type AIMode = 'nvidia' | 'gemini' | 'local';
 type ReportMode = 'choose' | 'image' | 'description';
 
 const ReportForm = () => {
@@ -45,7 +45,8 @@ const ReportForm = () => {
   const [detectedState, setDetectedState] = useState<IndianState | null>(null);
   
   // AI Mode state - auto-selected based on report mode
-  const [aiMode, setAiMode] = useState<AIMode>('local');
+  const [aiMode, setAiMode] = useState<AIMode>('nvidia');
+  const [nvidiaAvailable] = useState(() => isNvidiaConfigured());
   const [geminiAvailable] = useState(() => isGeminiConfigured());
   
   // ML Analysis state
@@ -54,14 +55,20 @@ const ReportForm = () => {
   const [showMlSuggestions, setShowMlSuggestions] = useState(false);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
   
-  // Auto-select AI mode based on report mode
+  // Auto-select AI mode based on report mode - NVIDIA preferred, then Gemini, then local
   useEffect(() => {
     if (reportMode === 'image') {
-      setAiMode('local'); // Local ML is better for image analysis
-    } else if (reportMode === 'description' && geminiAvailable) {
-      setAiMode('gemini'); // Gemini is better for text understanding
+      setAiMode('nvidia'); // NVIDIA Vision for images
+    } else if (reportMode === 'description') {
+      if (nvidiaAvailable) {
+        setAiMode('nvidia');
+      } else if (geminiAvailable) {
+        setAiMode('gemini');
+      } else {
+        setAiMode('local');
+      }
     }
-  }, [reportMode, geminiAvailable]);
+  }, [reportMode, nvidiaAvailable, geminiAvailable]);
   
   // Update department when category or pincode changes
   useEffect(() => {
@@ -92,7 +99,7 @@ const ReportForm = () => {
     setFormProgress(calculateProgress());
   }, [title, description, category, location, pincode, duration]);
   
-  // Run ML analysis when image is added - supports both local ML and Gemini
+  // Run ML analysis when image is added - supports NVIDIA, Gemini, and Local ML
   const runMlAnalysis = async (imageUrl: string, userDesc: string, mode: AIMode = aiMode) => {
     setIsAnalyzing(true);
     setShowMlSuggestions(false);
@@ -100,42 +107,60 @@ const ReportForm = () => {
     
     try {
       let result: MLAnalysisResult | null = null;
+      let success = false;
       
-      if (mode === 'gemini' && geminiAvailable) {
-        // Use Gemini AI for analysis
+      // Priority: NVIDIA -> Gemini -> Local ML
+      if (mode === 'nvidia' && nvidiaAvailable) {
+        try {
+          result = await analyzeWithNvidia(imageUrl, userDesc, location || undefined);
+          toast({
+            title: "AI Analysis Complete",
+            description: "Form fields have been auto-filled using NVIDIA AI.",
+          });
+          success = true;
+        } catch (nvidiaError) {
+          console.error("NVIDIA API error:", nvidiaError);
+          toast({
+            title: "NVIDIA AI Error",
+            description: "NVIDIA failed. Trying Gemini...",
+            variant: "destructive",
+          });
+        }
+      }
+      
+      // Fallback to Gemini
+      if (!success && (geminiAvailable || mode === 'gemini')) {
         try {
           result = await analyzeWithGemini(imageUrl, userDesc, location || undefined);
           toast({
-            title: "Gemini AI Analysis Complete",
+            title: "AI Analysis Complete",
             description: "Form fields have been auto-filled using Gemini AI.",
           });
+          success = true;
         } catch (geminiError) {
           console.error("Gemini API error:", geminiError);
           toast({
             title: "Gemini AI Error",
-            description: geminiError instanceof Error ? geminiError.message : "Failed to analyze with Gemini. Falling back to local ML.",
+            description: "Gemini failed. Using local analysis...",
             variant: "destructive",
           });
-          // Fallback to local ML
-          const response = await apiAnalyzeContent({
-            imageUrl,
-            description: userDesc,
-            location: location || undefined
-          });
-          if (response.success && response.analysis) {
-            result = response.analysis;
-          }
         }
-      } else {
-        // Use local ML backend for analysis
+      }
+      
+      // Final fallback to local ML
+      if (!success) {
         const response = await apiAnalyzeContent({
           imageUrl,
           description: userDesc,
           location: location || undefined
         });
-        
         if (response.success && response.analysis) {
           result = response.analysis;
+          toast({
+            title: "Local Analysis Complete",
+            description: "Form fields have been auto-filled using local ML.",
+          });
+          success = true;
         }
       }
       
@@ -407,9 +432,11 @@ const ReportForm = () => {
               <p className="text-gray-600 text-sm mb-4">
                 Take or upload a photo of the issue. Our AI will analyze it automatically.
               </p>
-              <div className="flex items-center justify-center gap-2 text-blue-600">
+              <div className="flex items-center justify-center gap-2 text-green-600">
                 <Cpu className="h-4 w-4" />
-                <span className="text-sm font-medium">Uses Local ML Analysis</span>
+                <span className="text-sm font-medium">
+                  {nvidiaAvailable ? "Uses NVIDIA Vision AI" : "Uses Local ML Analysis"}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -430,7 +457,9 @@ const ReportForm = () => {
               <div className="flex items-center justify-center gap-2 text-purple-600">
                 <Zap className="h-4 w-4" />
                 <span className="text-sm font-medium">
-                  {geminiAvailable ? "Uses Gemini AI" : "Gemini AI (Setup Required)"}
+                <span className="text-sm font-medium">
+                  {nvidiaAvailable ? "NVIDIA AI" : geminiAvailable ? "Gemini AI" : "Local ML"}
+                </span>
                 </span>
               </div>
             </CardContent>
@@ -487,6 +516,11 @@ const ReportForm = () => {
               <Cpu className="h-3 w-3 mr-1" />
               Local ML
             </>
+          ) : aiMode === 'nvidia' ? (
+            <>
+              <Zap className="h-3 w-3 mr-1" />
+              NVIDIA AI
+            </>
           ) : (
             <>
               <Zap className="h-3 w-3 mr-1" />
@@ -516,11 +550,15 @@ const ReportForm = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg shadow-sm ${
-                aiMode === 'gemini' 
-                  ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
-                  : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                aiMode === 'nvidia' 
+                  ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                  : aiMode === 'gemini' 
+                    ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
+                    : 'bg-gradient-to-br from-blue-500 to-blue-600'
               }`}>
-                {aiMode === 'gemini' ? (
+                {aiMode === 'nvidia' ? (
+                  <Zap className="h-5 w-5 text-white" />
+                ) : aiMode === 'gemini' ? (
                   <Zap className="h-5 w-5 text-white" />
                 ) : (
                   <Cpu className="h-5 w-5 text-white" />
@@ -529,9 +567,11 @@ const ReportForm = () => {
               <div>
                 <h3 className="font-semibold text-gray-900">AI Auto-Fill</h3>
                 <p className="text-xs text-gray-500">
-                  {aiMode === 'gemini' 
-                    ? 'Using Gemini AI for text analysis' 
-                    : 'Using Local ML for image analysis'}
+                  {aiMode === 'nvidia' 
+                    ? 'Using NVIDIA Llama Vision for analysis' 
+                    : aiMode === 'gemini' 
+                      ? 'Using Gemini AI for text analysis' 
+                      : 'Using Local ML for analysis'}
                 </p>
               </div>
             </div>
@@ -561,7 +601,9 @@ const ReportForm = () => {
           <CardContent className="py-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-[#FF7722]/10 rounded-lg">
-                {aiMode === 'gemini' ? (
+                {aiMode === 'nvidia' ? (
+                  <Zap className="h-5 w-5 text-green-600 animate-pulse" />
+                ) : aiMode === 'gemini' ? (
                   <Zap className="h-5 w-5 text-purple-600 animate-pulse" />
                 ) : (
                   <Brain className="h-5 w-5 text-[#FF7722] animate-pulse" />
@@ -569,7 +611,12 @@ const ReportForm = () => {
               </div>
               <div className="flex-1">
                 <p className="font-medium text-gray-900 flex items-center gap-2">
-                  {aiMode === 'gemini' ? (
+                  {aiMode === 'nvidia' ? (
+                    <>
+                      <Zap className="h-4 w-4 text-green-600" />
+                      NVIDIA AI is analyzing...
+                    </>
+                  ) : aiMode === 'gemini' ? (
                     <>
                       <Zap className="h-4 w-4 text-purple-600" />
                       Gemini AI is analyzing...
@@ -582,9 +629,11 @@ const ReportForm = () => {
                   )}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {aiMode === 'gemini' 
-                    ? 'Using Google Gemini for advanced image understanding' 
-                    : 'Auto-filling form fields based on image content'}
+                  {aiMode === 'nvidia' 
+                    ? 'Using NVIDIA Llama 3.2 Vision for image understanding' 
+                    : aiMode === 'gemini' 
+                      ? 'Using Google Gemini for advanced image understanding' 
+                      : 'Auto-filling form fields based on image content'}
                 </p>
               </div>
               <Loader2 className="h-5 w-5 text-[#FF7722] animate-spin" />
@@ -596,20 +645,30 @@ const ReportForm = () => {
       {/* ML Suggestions Panel */}
       {showMlSuggestions && mlResult && !isAnalyzing && (
         <Card className={`mb-6 overflow-hidden ${
-          aiMode === 'gemini' 
-            ? 'border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50' 
-            : 'border-[#FF7722]/30 bg-gradient-to-br from-orange-50 to-amber-50'
+          aiMode === 'nvidia' 
+            ? 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50'
+            : aiMode === 'gemini' 
+              ? 'border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50' 
+              : 'border-[#FF7722]/30 bg-gradient-to-br from-orange-50 to-amber-50'
         }`}>
           <div className={`px-4 py-2 ${
-            aiMode === 'gemini'
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
-              : 'bg-gradient-to-r from-[#FF7722] to-[#FF9F5A]'
+            aiMode === 'nvidia'
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+              : aiMode === 'gemini'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
+                : 'bg-gradient-to-r from-[#FF7722] to-[#FF9F5A]'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-white">
-                {aiMode === 'gemini' ? <Zap className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                {aiMode === 'nvidia' ? (
+                  <Zap className="h-4 w-4" />
+                ) : aiMode === 'gemini' ? (
+                  <Zap className="h-4 w-4" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
                 <span className="font-semibold text-sm">
-                  {aiMode === 'gemini' ? 'Gemini AI Suggestions' : 'ML Suggestions'}
+                  {aiMode === 'nvidia' ? 'NVIDIA AI Suggestions' : aiMode === 'gemini' ? 'Gemini AI Suggestions' : 'ML Suggestions'}
                 </span>
               </div>
               <Button
