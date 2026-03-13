@@ -20,9 +20,18 @@ const firebaseConfig = {
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://bol-bharat-dev-default-rtdb.firebaseio.com",
 };
 
-// Remove the strict validation check that was causing the error
-// Since we now have default values, the app can initialize for development
-// In production, these should be replaced with real values
+// Detect whether real Firebase credentials are present
+export const isFirebaseConfigured = !!(
+  import.meta.env.VITE_FIREBASE_API_KEY &&
+  import.meta.env.VITE_FIREBASE_DATABASE_URL
+);
+
+if (!isFirebaseConfigured) {
+  console.warn(
+    "⚠️  Firebase env vars not found. App will use mock/local data.\n" +
+    "    Create a .env.local file with your Firebase credentials to connect to a real database."
+  );
+}
 
 let app: ReturnType<typeof initializeApp> | undefined;
 let analytics: ReturnType<typeof getAnalytics> | undefined;

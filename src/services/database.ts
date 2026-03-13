@@ -4,10 +4,46 @@
  */
 
 import { ref, push, set, get, update, remove, query, orderByChild, equalTo, limitToLast, onValue, off } from "firebase/database";
-import { db } from "@/lib/utils";
+import { db, isFirebaseConfigured } from "@/lib/utils";
 import { Issue, IssueCategory, IssueStatus, IssuePriority, GeoLocation } from "@/types";
 import { MLAnalysisResult, HotspotPrediction } from "./mlService";
 import { mockIssues } from "@/data/mockData";
+
+// =============================================================================
+// Mock data helper – used as fallback when Firebase is unavailable
+// =============================================================================
+
+function getMockIssueRecords(options?: {
+  category?: IssueCategory;
+  status?: IssueStatus;
+  limit?: number;
+}): IssueRecord[] {
+  let records: IssueRecord[] = mockIssues.map((issue) => ({
+    id: issue.id,
+    title: issue.title,
+    description: issue.description,
+    category: issue.category,
+    status: issue.status,
+    priority: issue.priority,
+    location: issue.location?.address || "",
+    pincode: issue.location?.pincode,
+    locationData: issue.location,
+    images: issue.images,
+    duration: issue.duration,
+    reportedBy: issue.reportedBy,
+    timestamp: issue.reportedAt.toISOString(),
+    upvotes: issue.upvotes,
+    department: issue.department,
+    departmentShortName: issue.departmentShortName,
+    departmentStatus: "pending" as const,
+  }));
+
+  if (options?.category) records = records.filter((r) => r.category === options.category);
+  if (options?.status) records = records.filter((r) => r.status === options.status);
+  records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  if (options?.limit) records = records.slice(0, options.limit);
+  return records;
+}
 
 // =============================================================================
 // Types
@@ -78,8 +114,8 @@ export interface AnalyticsEvent {
  */
 export async function seedDatabaseIfEmpty(): Promise<void> {
   try {
-    if (!db) {
-      console.warn("Database not initialized, skipping seed");
+    if (!db || !isFirebaseConfigured) {
+      console.warn("Firebase not configured – skipping database seed (mock data will be used instead)");
       return;
     }
 
@@ -183,35 +219,35 @@ export async function getIssues(options?: {
   status?: IssueStatus;
   limit?: number;
 }): Promise<IssueRecord[]> {
-  if (!db) throw new Error("Database not initialized");
-  
-  const issuesRef = ref(db, "issues");
-  const snapshot = await get(issuesRef);
-  
-  if (!snapshot.exists()) return [];
-  
-  let issues: IssueRecord[] = [];
-  snapshot.forEach((child) => {
-    issues.push({ id: child.key, ...child.val() });
-  });
-  
-  // Apply filters
-  if (options?.category) {
-    issues = issues.filter(i => i.category === options.category);
-  }
-  if (options?.status) {
-    issues = issues.filter(i => i.status === options.status);
+  if (!db || !isFirebaseConfigured) {
+    console.warn("Firebase not configured – returning mock data");
+    return getMockIssueRecords(options);
   }
   
-  // Sort by timestamp (newest first)
-  issues.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  
-  // Apply limit
-  if (options?.limit) {
-    issues = issues.slice(0, options.limit);
+  try {
+    const issuesRef = ref(db, "issues");
+    const snapshot = await get(issuesRef);
+    
+    if (!snapshot.exists()) {
+      console.log("No issues in Firebase, returning mock data");
+      return getMockIssueRecords(options);
+    }
+    
+    let issues: IssueRecord[] = [];
+    snapshot.forEach((child) => {
+      issues.push({ id: child.key!, ...child.val() });
+    });
+    
+    if (options?.category) issues = issues.filter(i => i.category === options.category);
+    if (options?.status) issues = issues.filter(i => i.status === options.status);
+    issues.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (options?.limit) issues = issues.slice(0, options.limit);
+    
+    return issues;
+  } catch (error) {
+    console.error("Firebase getIssues failed, using mock data:", error);
+    return getMockIssueRecords(options);
   }
-  
-  return issues;
 }
 
 /**
@@ -271,19 +307,31 @@ export async function upvoteIssue(issueId: string): Promise<number> {
 export function subscribeToIssues(
   callback: (issues: IssueRecord[]) => void
 ): () => void {
-  if (!db) throw new Error("Database not initialized");
+  if (!db || !isFirebaseConfigured) {
+    console.warn("Firebase not configured – serving mock data via subscribeToIssues");
+    callback(getMockIssueRecords());
+    return () => {};
+  }
   
   const issuesRef = ref(db, "issues");
   
-  const unsubscribe = onValue(issuesRef, (snapshot) => {
-    const issues: IssueRecord[] = [];
-    if (snapshot.exists()) {
-      snapshot.forEach((child) => {
-        issues.push({ id: child.key, ...child.val() });
-      });
+  const unsubscribe = onValue(
+    issuesRef,
+    (snapshot) => {
+      const issues: IssueRecord[] = [];
+      if (snapshot.exists()) {
+        snapshot.forEach((child) => {
+          issues.push({ id: child.key!, ...child.val() });
+        });
+      }
+      // If Firebase returned nothing, fall back to mock data
+      callback(issues.length > 0 ? issues : getMockIssueRecords());
+    },
+    (error) => {
+      console.error("Firebase realtime subscription error, using mock data:", error);
+      callback(getMockIssueRecords());
     }
-    callback(issues);
-  });
+  );
   
   return () => off(issuesRef, 'value', unsubscribe);
 }

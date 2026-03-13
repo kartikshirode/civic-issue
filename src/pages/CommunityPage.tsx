@@ -181,7 +181,7 @@ const CommunityPage = () => {
     <Link to={`/issues/${issue.id}`}>
       <Card className="hover:shadow-lg transition-all duration-300 hover:border-[#FF7722]/50 cursor-pointer group">
         <CardContent className="p-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             {/* Rank Badge (for trending) */}
             {rank && (
               <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
@@ -221,7 +221,7 @@ const CommunityPage = () => {
                   variant="outline"
                   size="sm"
                   onClick={(e) => handleUpvote(issue.id, e)}
-                  className={`flex-shrink-0 flex flex-col items-center h-auto py-2 px-3 ${
+                  className={`flex-shrink-0 flex items-center sm:flex-col gap-1 h-9 sm:h-auto py-1.5 sm:py-2 px-2.5 sm:px-3 ${
                     votedIssues.has(issue.id) 
                       ? 'bg-[#FF7722] text-white border-[#FF7722] hover:bg-[#E56610]' 
                       : 'hover:border-[#FF7722] hover:text-[#FF7722]'
@@ -317,19 +317,19 @@ const CommunityPage = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search issues by title, description, or location..."
+              placeholder="Search by title, issue, or location"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
           </div>
           
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-nowrap overflow-x-auto pb-1">
             <Button
               variant={selectedCategory === 'all' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSelectedCategory('all')}
-              className={selectedCategory === 'all' ? 'bg-[#FF7722] hover:bg-[#E56610]' : ''}
+              className={`shrink-0 ${selectedCategory === 'all' ? 'bg-[#FF7722] hover:bg-[#E56610]' : ''}`}
             >
               All
             </Button>
@@ -339,7 +339,7 @@ const CommunityPage = () => {
                 variant={selectedCategory === cat ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSelectedCategory(cat as IssueCategory)}
-                className={selectedCategory === cat ? 'bg-[#FF7722] hover:bg-[#E56610]' : ''}
+                className={`shrink-0 ${selectedCategory === cat ? 'bg-[#FF7722] hover:bg-[#E56610]' : ''}`}
               >
                 {cat.replace('-', ' ')}
               </Button>
@@ -352,15 +352,18 @@ const CommunityPage = () => {
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="trending" className="flex items-center gap-2">
               <Flame className="h-4 w-4" />
-              Trending
+              <span className="hidden sm:inline">Trending</span>
+              <span className="sm:hidden">Top</span>
             </TabsTrigger>
             <TabsTrigger value="recent" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              Recent
+              <span className="hidden sm:inline">Recent</span>
+              <span className="sm:hidden">New</span>
             </TabsTrigger>
             <TabsTrigger value="urgent" className="flex items-center gap-2">
               <Star className="h-4 w-4" />
-              Urgent
+              <span className="hidden sm:inline">Urgent</span>
+              <span className="sm:hidden">SOS</span>
             </TabsTrigger>
           </TabsList>
           

@@ -272,21 +272,39 @@ export async function compressImage(
 }
 
 /**
- * Extract EXIF metadata from image (basic implementation)
- * In production, use a library like exif-js for full EXIF support
+ * Extract EXIF metadata from image using exifr library
+ * Includes GPS coordinates if available in the image
  */
 export async function extractImageMetadata(file: File): Promise<ImageMetadata> {
   return new Promise((resolve) => {
     const img = new Image();
     
-    img.onload = () => {
+    img.onload = async () => {
+      let gpsCoordinates: { lat: number; lng: number } | undefined;
+      let hasExif = false;
+      
+      try {
+        const exifData = await import('exifr');
+        const gps = await exifData.gps(file);
+        
+        if (gps?.latitude && gps?.longitude) {
+          gpsCoordinates = {
+            lat: gps.latitude,
+            lng: gps.longitude
+          };
+          hasExif = true;
+        }
+      } catch (error) {
+        console.log('EXIF extraction not available or failed:', error);
+      }
+      
       resolve({
         width: img.width,
         height: img.height,
         size: file.size,
         contentType: file.type,
-        hasExif: false, // Would need exif-js library for actual extraction
-        gpsCoordinates: undefined
+        hasExif,
+        gpsCoordinates
       });
     };
     
@@ -299,6 +317,29 @@ export async function extractImageMetadata(file: File): Promise<ImageMetadata> {
     
     img.src = URL.createObjectURL(file);
   });
+}
+
+/**
+ * Extract GPS coordinates from image EXIF data
+ * Returns null if no GPS data is found
+ */
+export async function extractGPSFromImage(file: File): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const exifData = await import('exifr');
+    const gps = await exifData.gps(file);
+    
+    if (gps?.latitude && gps?.longitude) {
+      return {
+        lat: gps.latitude,
+        lng: gps.longitude
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('GPS extraction failed:', error);
+    return null;
+  }
 }
 
 /**

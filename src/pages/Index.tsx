@@ -147,7 +147,7 @@ const Index = () => {
                   asChild 
                   size="lg" 
                   variant="outline"
-                  className="border-2 border-white/30 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm font-semibold text-sm md:text-base h-12 md:h-14 px-6 md:px-8 transition-all duration-300 hidden sm:flex"
+                  className="border-2 border-white/30 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm font-semibold text-sm md:text-base h-12 md:h-14 px-6 md:px-8 transition-all duration-300"
                 >
                   <Link to="/issues" className="flex items-center gap-2">
                     View All Issues
@@ -269,7 +269,7 @@ const Index = () => {
               <span className="inline-block text-[#FF7722] font-semibold text-sm uppercase tracking-wider mb-1 md:mb-2">Explore</span>
               <h2 className="text-2xl md:text-4xl font-bold text-gray-900">Issue Map</h2>
             </div>
-            <Button asChild variant="outline" size="sm" className="group border-2 border-[#FF7722] text-[#FF7722] hover:bg-[#FF7722] hover:text-white transition-all duration-300 hidden md:flex">
+            <Button asChild variant="outline" size="sm" className="group border-2 border-[#FF7722] text-[#FF7722] hover:bg-[#FF7722] hover:text-white transition-all duration-300">
               <Link to="/map" className="flex items-center gap-2">
                 View Full Map
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -317,7 +317,7 @@ const Index = () => {
               <span className="inline-block text-[#FF7722] font-semibold text-sm uppercase tracking-wider mb-1 md:mb-2">Latest Updates</span>
               <h2 className="text-2xl md:text-4xl font-bold text-gray-900">Recent Reports</h2>
             </div>
-            <Button asChild variant="outline" size="sm" className="group border-2 border-[#FF7722] text-[#FF7722] hover:bg-[#FF7722] hover:text-white transition-all duration-300 hidden md:flex">
+            <Button asChild variant="outline" size="sm" className="group border-2 border-[#FF7722] text-[#FF7722] hover:bg-[#FF7722] hover:text-white transition-all duration-300">
               <Link to="/issues" className="flex items-center gap-2">
                 View All Issues
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -407,7 +407,7 @@ const Index = () => {
               asChild 
               size="lg"
               variant="outline"
-              className="border-2 border-white/30 text-white bg-white/5 hover:bg-white/10 h-12 md:h-14 px-6 md:px-8 text-sm md:text-base font-semibold transition-all duration-300 hidden sm:flex"
+              className="border-2 border-white/30 text-white bg-white/5 hover:bg-white/10 h-12 md:h-14 px-6 md:px-8 text-sm md:text-base font-semibold transition-all duration-300"
             >
               <Link to="/about" className="flex items-center gap-2">
                 Learn More

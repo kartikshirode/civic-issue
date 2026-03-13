@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Camera, MapPin, Clock, Upload, Trash2, FileText, AlertCircle, CheckCircle2, Loader2, Sparkles, Brain, AlertTriangle, Copy, Image, Wand2, Check, X, Cpu, Zap, ArrowLeft, ArrowRight, Building2, Phone, Mail } from "lucide-react";
+import { Camera, MapPin, Clock, Upload, Trash2, FileText, AlertCircle, CheckCircle2, Loader2, Sparkles, Brain, AlertTriangle, Copy, Image, Wand2, Check, X, Cpu, Zap, ArrowLeft, ArrowRight, Building2, Phone, Mail, Upload as UploadIcon } from "lucide-react";
 import { categoryOptions, durationOptions } from "@/data/mockData";
 import { IssueCategory } from "@/types";
 import { apiCreateIssue, apiAnalyzeContent, MLAnalysisResult } from "@/services/api";
 import { analyzeWithGemini, analyzeWithNvidia, isGeminiConfigured, isNvidiaConfigured } from "@/services/geminiService";
+import { analyzeWithRoboflow, isRoboflowConfigured } from "@/services/roboflowService";
+import { extractGPSFromImage, uploadImage, validateImage } from "@/services/storage";
 import { getDepartmentFromPincode, Department } from "@/data/departments";
 import { IndianState } from "@/types/location";
 
@@ -55,10 +57,21 @@ const ReportForm = () => {
   const [showMlSuggestions, setShowMlSuggestions] = useState(false);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
   
-  // Auto-select AI mode based on report mode - NVIDIA preferred, then Gemini, then local
+  // Image Mode state - for file upload and GPS extraction
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [extractedGPS, setExtractedGPS] = useState<{ lat: number; lng: number } | null>(null);
+  const [isExtractingGPS, setIsExtractingGPS] = useState(false);
+  const [roboflowAvailable] = useState(() => isRoboflowConfigured());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Auto-select AI mode based on report mode - Roboflow for images, NVIDIA/Gemini for text
   useEffect(() => {
     if (reportMode === 'image') {
-      setAiMode('nvidia'); // NVIDIA Vision for images
+      if (roboflowAvailable) {
+        setAiMode('nvidia'); // Will use Roboflow instead
+      } else {
+        setAiMode('nvidia'); // Fallback to NVIDIA Vision
+      }
     } else if (reportMode === 'description') {
       if (nvidiaAvailable) {
         setAiMode('nvidia');
@@ -68,7 +81,7 @@ const ReportForm = () => {
         setAiMode('local');
       }
     }
-  }, [reportMode, nvidiaAvailable, geminiAvailable]);
+  }, [reportMode, nvidiaAvailable, geminiAvailable, roboflowAvailable]);
   
   // Update department when category or pincode changes
   useEffect(() => {
@@ -99,8 +112,8 @@ const ReportForm = () => {
     setFormProgress(calculateProgress());
   }, [title, description, category, location, pincode, duration]);
   
-  // Run ML analysis when image is added - supports NVIDIA, Gemini, and Local ML
-  const runMlAnalysis = async (imageUrl: string, userDesc: string, mode: AIMode = aiMode) => {
+  // Run ML analysis - supports Roboflow (image), NVIDIA/Gemini (text)
+  const runMlAnalysis = async (imageUrl: string, userDesc: string, mode: AIMode = aiMode, imageFile?: File) => {
     setIsAnalyzing(true);
     setShowMlSuggestions(false);
     setAppliedSuggestions(new Set());
@@ -109,8 +122,28 @@ const ReportForm = () => {
       let result: MLAnalysisResult | null = null;
       let success = false;
       
-      // Priority: NVIDIA -> Gemini -> Local ML
-      if (mode === 'nvidia' && nvidiaAvailable) {
+      // For Image Mode with file: ALWAYS use Roboflow first (ignore the check)
+      if (reportMode === 'image' && imageFile) {
+        try {
+          console.log("Using Roboflow for image analysis...");
+          result = await analyzeWithRoboflow(imageFile);
+          toast({
+            title: "Roboflow Analysis Complete",
+            description: "Image analyzed with Roboflow ML.",
+          });
+          success = true;
+        } catch (roboflowError) {
+          console.error("Roboflow API error:", roboflowError);
+          toast({
+            title: "Roboflow Error",
+            description: "Roboflow failed. Trying NVIDIA...",
+            variant: "destructive",
+          });
+        }
+      }
+      
+      // Fallback to NVIDIA Vision (only if Roboflow failed or not image mode)
+      if (!success && (mode === 'nvidia' || reportMode === 'image') && nvidiaAvailable) {
         try {
           result = await analyzeWithNvidia(imageUrl, userDesc, location || undefined);
           toast({
@@ -120,16 +153,18 @@ const ReportForm = () => {
           success = true;
         } catch (nvidiaError) {
           console.error("NVIDIA API error:", nvidiaError);
-          toast({
-            title: "NVIDIA AI Error",
-            description: "NVIDIA failed. Trying Gemini...",
-            variant: "destructive",
-          });
+          if (reportMode === 'image') {
+            toast({
+              title: "NVIDIA AI Error",
+              description: "NVIDIA failed. Trying Gemini...",
+              variant: "destructive",
+            });
+          }
         }
       }
       
-      // Fallback to Gemini
-      if (!success && (geminiAvailable || mode === 'gemini')) {
+      // Fallback to Gemini (for description mode or if NVIDIA fails in image mode)
+      if (!success && (geminiAvailable || mode === 'gemini' || reportMode === 'description')) {
         try {
           result = await analyzeWithGemini(imageUrl, userDesc, location || undefined);
           toast({
@@ -219,9 +254,66 @@ const ReportForm = () => {
     }
   };
   
+  // Handle file upload for Image Mode
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    const validation = validateImage(file);
+    
+    if (!validation.valid) {
+      toast({
+        title: "Invalid Image",
+        description: validation.error || "Invalid image file",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsAnalyzing(true);
+      
+      // Extract GPS from image EXIF (silently skip if not available)
+      const gps = await extractGPSFromImage(file);
+      if (gps) {
+        setExtractedGPS(gps);
+        toast({
+          title: "GPS Extracted",
+          description: `Location found: ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`,
+        });
+      } else {
+        setExtractedGPS(null);
+      }
+      
+      // Create local preview URL (no Firebase upload needed for analysis)
+      const localPreviewUrl = URL.createObjectURL(file);
+      const newImages = [...images, localPreviewUrl];
+      setImages(newImages);
+      setImageFiles([...imageFiles, file]);
+      
+      // Trigger ML analysis with Roboflow directly using File object
+      if (newImages.length === 1) {
+        await runMlAnalysis(localPreviewUrl, description, aiMode, file);
+      }
+    } catch (error) {
+      console.error("File processing error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+      setIsExtractingGPS(false);
+    }
+  };
+  
   // Manual trigger for AI analysis
   const triggerAiAnalysis = () => {
-    if (images.length > 0) {
+    if (imageFiles.length > 0) {
+      runMlAnalysis(images[0], description, aiMode, imageFiles[0]);
+    } else if (images.length > 0) {
       runMlAnalysis(images[0], description);
     } else if (description.trim()) {
       // Text-only analysis
@@ -303,6 +395,7 @@ const ReportForm = () => {
   // Handle image deletion
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
   };
   
   // Submit form
@@ -319,6 +412,21 @@ const ReportForm = () => {
     setIsSubmitting(true);
     
     try {
+      // Upload any new image files to Firebase (for files uploaded via file input)
+      let finalImages = images.filter(url => url.startsWith('http'));
+      
+      if (imageFiles.length > 0) {
+        const issueId = `issue_${Date.now()}`;
+        
+        for (let i = 0; i < imageFiles.length; i++) {
+          const file = imageFiles[i];
+          const uploadResult = await uploadImage(file, issueId, i);
+          if (uploadResult.success && uploadResult.url) {
+            finalImages.push(uploadResult.url);
+          }
+        }
+      }
+      
       // Use the API to create issue with ML analysis
       const response = await apiCreateIssue({
         title,
@@ -327,7 +435,7 @@ const ReportForm = () => {
         location,
         pincode,
         duration,
-        images,
+        images: finalImages,
         reportedBy: 'anonymous',
         department: assignedDepartment?.name,
         departmentShortName: assignedDepartment?.shortName,
@@ -402,6 +510,8 @@ const ReportForm = () => {
     setPincode("");
     setDuration("");
     setImages([]);
+    setImageFiles([]);
+    setExtractedGPS(null);
     setMlResult(null);
     setShowMlSuggestions(false);
     setAppliedSuggestions(new Set());
@@ -433,10 +543,19 @@ const ReportForm = () => {
                 Take or upload a photo of the issue. Our AI will analyze it automatically.
               </p>
               <div className="flex items-center justify-center gap-2 text-green-600">
-                <Cpu className="h-4 w-4" />
-                <span className="text-sm font-medium">
-                  {nvidiaAvailable ? "Uses NVIDIA Vision AI" : "Uses Local ML Analysis"}
-                </span>
+                {roboflowAvailable ? (
+                  <>
+                    <Camera className="h-4 w-4" />
+                    <span className="text-sm font-medium">Uses Roboflow ML</span>
+                  </>
+                ) : (
+                  <>
+                    <Cpu className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {nvidiaAvailable ? "Uses NVIDIA Vision AI" : "Uses Local ML Analysis"}
+                    </span>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -544,19 +663,23 @@ const ReportForm = () => {
         </div>
       </div>
       
-      {/* AI Auto-Fill Card - Simplified, no model switching */}
+      {/* AI Auto-Fill Card */}
       <Card className="mb-6 border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50">
         <CardContent className="py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg shadow-sm ${
-                aiMode === 'nvidia' 
-                  ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
-                  : aiMode === 'gemini' 
-                    ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
-                    : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                reportMode === 'image' && roboflowAvailable
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-600'
+                  : aiMode === 'nvidia' 
+                    ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                    : aiMode === 'gemini' 
+                      ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
+                      : 'bg-gradient-to-br from-blue-500 to-blue-600'
               }`}>
-                {aiMode === 'nvidia' ? (
+                {reportMode === 'image' && roboflowAvailable ? (
+                  <Camera className="h-5 w-5 text-white" />
+                ) : aiMode === 'nvidia' ? (
                   <Zap className="h-5 w-5 text-white" />
                 ) : aiMode === 'gemini' ? (
                   <Zap className="h-5 w-5 text-white" />
@@ -567,11 +690,13 @@ const ReportForm = () => {
               <div>
                 <h3 className="font-semibold text-gray-900">AI Auto-Fill</h3>
                 <p className="text-xs text-gray-500">
-                  {aiMode === 'nvidia' 
-                    ? 'Using NVIDIA Llama Vision for analysis' 
-                    : aiMode === 'gemini' 
-                      ? 'Using Gemini AI for text analysis' 
-                      : 'Using Local ML for analysis'}
+                  {reportMode === 'image' && roboflowAvailable
+                    ? 'Using Roboflow ML for image analysis'
+                    : aiMode === 'nvidia' 
+                      ? 'Using NVIDIA Llama Vision for analysis' 
+                      : aiMode === 'gemini' 
+                        ? 'Using Gemini AI for text analysis' 
+                        : 'Using Local ML for analysis'}
                 </p>
               </div>
             </div>
@@ -582,7 +707,7 @@ const ReportForm = () => {
               size="sm"
               className="flex items-center gap-2 bg-[#FF7722] text-white border-[#FF7722] hover:bg-[#E56610] shadow-md font-medium"
               onClick={triggerAiAnalysis}
-              disabled={isAnalyzing || (!images.length && !description.trim())}
+              disabled={isAnalyzing || isExtractingGPS || (!images.length && !description.trim() && imageFiles.length === 0)}
             >
               {isAnalyzing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -645,22 +770,28 @@ const ReportForm = () => {
       {/* ML Suggestions Panel */}
       {showMlSuggestions && mlResult && !isAnalyzing && (
         <Card className={`mb-6 overflow-hidden ${
-          aiMode === 'nvidia' 
-            ? 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50'
-            : aiMode === 'gemini' 
-              ? 'border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50' 
-              : 'border-[#FF7722]/30 bg-gradient-to-br from-orange-50 to-amber-50'
+          reportMode === 'image'
+            ? 'border-blue-300 bg-gradient-to-br from-blue-50 to-purple-50'
+            : aiMode === 'nvidia' 
+              ? 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50'
+              : aiMode === 'gemini' 
+                ? 'border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50' 
+                : 'border-[#FF7722]/30 bg-gradient-to-br from-orange-50 to-amber-50'
         }`}>
           <div className={`px-4 py-2 ${
-            aiMode === 'nvidia'
-              ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-              : aiMode === 'gemini'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
-                : 'bg-gradient-to-r from-[#FF7722] to-[#FF9F5A]'
+            reportMode === 'image'
+              ? 'bg-gradient-to-r from-blue-500 to-purple-600'
+              : aiMode === 'nvidia'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                : aiMode === 'gemini'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
+                  : 'bg-gradient-to-r from-[#FF7722] to-[#FF9F5A]'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-white">
-                {aiMode === 'nvidia' ? (
+                {reportMode === 'image' ? (
+                  <Camera className="h-4 w-4" />
+                ) : aiMode === 'nvidia' ? (
                   <Zap className="h-4 w-4" />
                 ) : aiMode === 'gemini' ? (
                   <Zap className="h-4 w-4" />
@@ -668,7 +799,7 @@ const ReportForm = () => {
                   <Sparkles className="h-4 w-4" />
                 )}
                 <span className="font-semibold text-sm">
-                  {aiMode === 'nvidia' ? 'NVIDIA AI Suggestions' : aiMode === 'gemini' ? 'Gemini AI Suggestions' : 'ML Suggestions'}
+                  {reportMode === 'image' ? 'Roboflow Analysis' : aiMode === 'nvidia' ? 'NVIDIA AI Suggestions' : aiMode === 'gemini' ? 'Gemini AI Suggestions' : 'ML Suggestions'}
                 </span>
               </div>
               <Button
@@ -1020,8 +1151,52 @@ const ReportForm = () => {
                 <Camera className="h-4 w-4 text-pink-600" />
               </div>
               Add Images
-              <span className="text-xs text-gray-400 font-normal ml-2">(Optional but recommended)</span>
+              {reportMode === 'image' && (
+                <Badge variant="outline" className="ml-2 text-xs bg-green-50 border-green-500 text-green-700">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  AI will analyze this
+                </Badge>
+              )}
             </Label>
+            
+            {/* File Upload Button for Image Mode */}
+            {reportMode === 'image' && (
+              <div className="mb-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  ref={fileInputRef}
+                  className="hidden"
+                  id="image-upload"
+                  disabled={isSubmitting || isExtractingGPS || isAnalyzing}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-2 border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSubmitting || isExtractingGPS || isAnalyzing}
+                >
+                  {isExtractingGPS || isAnalyzing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <UploadIcon className="h-4 w-4 mr-2" />
+                  )}
+                  {isExtractingGPS ? "Extracting GPS..." : isAnalyzing ? "Analyzing..." : "Click to upload image"}
+                </Button>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Upload an image to detect the issue automatically
+                  {extractedGPS && (
+                    <span className="text-green-600 ml-1">
+                      • GPS extracted: {extractedGPS.lat.toFixed(4)}, {extractedGPS.lng.toFixed(4)}
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+            
+            {/* URL Input (for description mode or fallback) */}
             <div className="flex gap-2">
               <Input
                 placeholder="Paste image URL here"

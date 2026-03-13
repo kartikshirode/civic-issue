@@ -1,5 +1,5 @@
 # BOL BHARAT 🇮🇳
-
+opencode -s ses_31cbac5bfffezC77TzwyMlxBLE
 > **Speak Up, India!** — A civic issue reporting platform empowering citizens to report and track community problems.
 
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)](https://reactjs.org/)

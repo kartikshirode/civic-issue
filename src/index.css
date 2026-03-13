@@ -10,7 +10,7 @@
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
 
-    --popover: 0 0% 85%; /* Changed to grey (85% lightness) */
+    --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
     --primary: 25 100% 56%;
@@ -55,7 +55,7 @@
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 40%; /* Changed to darker grey (40% lightness) */
+    --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
     --primary: 25 100% 56%;
@@ -87,19 +87,6 @@
     --sidebar-ring: 201 100% 51%;
   }
 
-  body {
-    background-color: var(--color-background);
-    color: var(--color-primary);
-  }
-
-  button {
-    background-color: var(--color-primary);
-    color: var(--color-background);
-  }
-
-  button:hover {
-    background-color: var(--color-secondary);
-  }
 }
 
 @layer base {
