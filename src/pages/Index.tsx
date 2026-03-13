@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { Issue } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IndianState } from "@/types/location";
+import { normalizeIssueImages } from "@/lib/images";
 
 const Index = () => {
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -27,13 +28,7 @@ const Index = () => {
         const formattedIssues = fetchedIssues.map((issue: IssueRecord, index: number) => {
           const id = issue.id || `issue-${index}`;
           
-          // Properly handle image paths
-          let imagePaths: string[] = [];
-          if (issue.images && issue.images.length > 0) {
-            imagePaths = issue.images;
-          } else {
-            imagePaths = ["/placeholder.svg"];
-          }
+          const imagePaths = normalizeIssueImages(issue.images);
           
           // Determine the state from location or default to "Unknown" (which is a valid IndianState)
           let state: IndianState = "Unknown";

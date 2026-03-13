@@ -11,6 +11,7 @@ import { Issue } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { onValue, ref, get, update } from "firebase/database"; // Import Firebase operations
 import { db } from "@/lib/utils"; // Import Firebase database instance
+import { normalizeIssueImages } from "@/lib/images";
 
 const IssueDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ const IssueDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasSupported, setHasSupported] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,37 +49,44 @@ const IssueDetail = () => {
         
         if (snapshot.exists()) {
           const data = snapshot.val();
+          const locationText = typeof data.location === 'string'
+            ? data.location
+            : (data.locationData?.address || data.location?.address || '');
+          const normalizedStatus = data.status === 'in_progress' ? 'in-progress' : data.status;
           
           // Convert Firebase format to our app format
+          const normalizedImages = normalizeIssueImages(data.images ?? (data.image ? [data.image] : []));
+
           const formattedIssue: Issue = {
             id: id || '',
             title: data.title || '',
             description: data.description || '',
             category: data.category || 'other',
-            status: data.status || 'reported',
+                status: normalizedStatus || 'reported',
             priority: data.priority || 'medium',
             location: {
-              lat: 0,
-              lng: 0,
-              address: data.location || '',
-              state: data.location?.includes("Maharashtra") ? "Maharashtra" : "Unknown",
-              district: data.location?.includes("Baramati") ? "Pune" : 
-                      data.location?.includes("Pune") ? "Pune" : 
-                      data.location?.includes("Mumbai") ? "Mumbai" : "",
-              city: data.location?.includes("Baramati") ? "Baramati" : 
-                   data.location?.includes("Pune") ? "Pune" : 
-                   data.location?.includes("Mumbai") ? "Mumbai" : "",
+                  lat: data.locationData?.lat || 0,
+                  lng: data.locationData?.lng || 0,
+                  address: locationText,
+                  state: locationText.includes("Maharashtra") ? "Maharashtra" : "Unknown",
+                  district: locationText.includes("Baramati") ? "Pune" : 
+                    locationText.includes("Pune") ? "Pune" : 
+                    locationText.includes("Mumbai") ? "Mumbai" : "",
+                  city: locationText.includes("Baramati") ? "Baramati" : 
+                 locationText.includes("Pune") ? "Pune" : 
+                 locationText.includes("Mumbai") ? "Mumbai" : "",
               village: ""
             },
             reportedBy: 'user1',
             reportedAt: new Date(data.timestamp || Date.now()),
-            images: data.image ? [data.image] : [],
+            images: normalizedImages,
             duration: data.duration || '',
             upvotes: data.upvotes || 0,
             comments: []
           };
           
           setIssue(formattedIssue);
+          setActiveImageIndex(0);
         } else {
           setError("Issue not found");
           navigate('/issues/not-found', { replace: true });
@@ -268,23 +277,43 @@ const IssueDetail = () => {
               {issue.images && issue.images.length > 0 && (
                 <div className="space-y-2">
                   <h2 className="text-lg font-medium">Images</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {issue.images.map((image, index) => (
-                      <div 
-                        key={index} 
-                        className="aspect-video rounded-md overflow-hidden bg-gray-100"
-                      >
-                        <img 
-                          src={image} 
-                          alt={`Issue ${index + 1}`} 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            // Handle image load errors
-                            e.currentTarget.src = '/placeholder.svg';
-                          }}
-                        />
+                  <div className="space-y-3">
+                    <div className="aspect-video rounded-md overflow-hidden bg-gray-100 border border-gray-200">
+                      <img
+                        src={issue.images[Math.min(activeImageIndex, issue.images.length - 1)]}
+                        alt={issue.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = '/placeholder.svg';
+                        }}
+                      />
+                    </div>
+
+                    {issue.images.length > 1 && (
+                      <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
+                        {issue.images.map((image, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => setActiveImageIndex(index)}
+                            className={`aspect-video rounded-md overflow-hidden border-2 transition ${
+                              index === activeImageIndex
+                                ? 'border-[#FF7722] ring-2 ring-[#FF7722]/25'
+                                : 'border-transparent hover:border-gray-300'
+                            }`}
+                          >
+                            <img
+                              src={image}
+                              alt={`Issue preview ${index + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = '/placeholder.svg';
+                              }}
+                            />
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}

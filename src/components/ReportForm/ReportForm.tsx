@@ -17,6 +17,7 @@ import { analyzeWithRoboflow, isRoboflowConfigured } from "@/services/roboflowSe
 import { extractGPSFromImage, uploadImage, validateImage } from "@/services/storage";
 import { getDepartmentFromPincode, Department } from "@/data/departments";
 import { IndianState } from "@/types/location";
+import { resolveIssueLocation } from "@/lib/locationResolver";
 
 type AIMode = 'nvidia' | 'gemini' | 'local';
 type ReportMode = 'choose' | 'image' | 'description';
@@ -292,8 +293,8 @@ const ReportForm = () => {
       setImages(newImages);
       setImageFiles([...imageFiles, file]);
       
-      // Trigger ML analysis with Roboflow directly using File object
-      if (newImages.length === 1) {
+      // Trigger ML analysis automatically only in Image Mode
+      if (reportMode === 'image' && newImages.length === 1) {
         await runMlAnalysis(localPreviewUrl, description, aiMode, file);
       }
     } catch (error) {
@@ -376,8 +377,8 @@ const ReportForm = () => {
         const newImages = [...images, imageURL];
         setImages(newImages);
         
-        // Trigger ML analysis with the first image and current description
-        if (newImages.length === 1) {
+        // Trigger ML analysis automatically only in Image Mode
+        if (reportMode === 'image' && newImages.length === 1) {
           await runMlAnalysis(imageURL, description);
         }
       }
@@ -412,6 +413,13 @@ const ReportForm = () => {
     setIsSubmitting(true);
     
     try {
+      const resolvedLocation = resolveIssueLocation({
+        location,
+        pincode,
+        gps: extractedGPS || mlResult?.extractedLocation || null,
+        stateHint: detectedState,
+      });
+
       // Upload any new image files to Firebase (for files uploaded via file input)
       let finalImages = images.filter(url => url.startsWith('http'));
       
@@ -432,7 +440,7 @@ const ReportForm = () => {
         title,
         description,
         category: category as IssueCategory,
-        location,
+        location: resolvedLocation.normalizedAddress,
         pincode,
         duration,
         images: finalImages,
@@ -441,7 +449,14 @@ const ReportForm = () => {
         departmentShortName: assignedDepartment?.shortName,
         departmentEmail: assignedDepartment?.email,
         departmentPhone: assignedDepartment?.phone,
-        state: detectedState || undefined
+        state: (resolvedLocation.locationData.state || detectedState || undefined),
+        locationData: {
+          lat: resolvedLocation.locationData.lat,
+          lng: resolvedLocation.locationData.lng,
+          address: resolvedLocation.locationData.address,
+          city: resolvedLocation.locationData.city,
+          state: resolvedLocation.locationData.state,
+        }
       });
       
       if (!response.success) {
@@ -1159,42 +1174,46 @@ const ReportForm = () => {
               )}
             </Label>
             
-            {/* File Upload Button for Image Mode */}
-            {reportMode === 'image' && (
-              <div className="mb-4">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  ref={fileInputRef}
-                  className="hidden"
-                  id="image-upload"
-                  disabled={isSubmitting || isExtractingGPS || isAnalyzing}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full border-2 border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSubmitting || isExtractingGPS || isAnalyzing}
-                >
-                  {isExtractingGPS || isAnalyzing ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <UploadIcon className="h-4 w-4 mr-2" />
-                  )}
-                  {isExtractingGPS ? "Extracting GPS..." : isAnalyzing ? "Analyzing..." : "Click to upload image"}
-                </Button>
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  Upload an image to detect the issue automatically
-                  {extractedGPS && (
-                    <span className="text-green-600 ml-1">
-                      • GPS extracted: {extractedGPS.lat.toFixed(4)}, {extractedGPS.lng.toFixed(4)}
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
+            {/* File Upload Button - available in both modes */}
+            <div className="mb-4">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                ref={fileInputRef}
+                className="hidden"
+                id="image-upload"
+                disabled={isSubmitting || isExtractingGPS || isAnalyzing}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className={`w-full border-2 border-dashed ${
+                  reportMode === 'image'
+                    ? 'border-blue-300 hover:border-blue-500 hover:bg-blue-50'
+                    : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50'
+                }`}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSubmitting || isExtractingGPS || isAnalyzing}
+              >
+                {isExtractingGPS || isAnalyzing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <UploadIcon className="h-4 w-4 mr-2" />
+                )}
+                {isExtractingGPS ? "Extracting GPS..." : isAnalyzing ? "Analyzing..." : "Upload image file"}
+              </Button>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                {reportMode === 'image'
+                  ? 'Image mode: first image is analyzed automatically'
+                  : 'Description mode: images are attached only, analysis runs only when you click Analyze & Auto-Fill'}
+                {extractedGPS && (
+                  <span className="text-green-600 ml-1">
+                    • GPS extracted: {extractedGPS.lat.toFixed(4)}, {extractedGPS.lng.toFixed(4)}
+                  </span>
+                )}
+              </p>
+            </div>
             
             {/* URL Input (for description mode or fallback) */}
             <div className="flex gap-2">

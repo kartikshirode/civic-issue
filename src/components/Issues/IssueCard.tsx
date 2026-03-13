@@ -5,6 +5,7 @@ import { statusOptions, priorityOptions, categoryOptions } from "@/data/mockData
 import { format } from "date-fns";
 import { MapPin, Clock, ThumbsUp, ArrowUpRight, Calendar } from "lucide-react";
 import React from 'react';
+import { normalizeIssueImage } from "@/lib/images";
 
 interface IssueCardProps {
   issue: Issue;
@@ -14,6 +15,7 @@ const IssueCard = ({ issue }: IssueCardProps) => {
   const statusOption = statusOptions.find(s => s.value === issue.status);
   const priorityOption = priorityOptions.find(p => p.value === issue.priority);
   const categoryOption = categoryOptions.find(c => c.value === issue.category);
+  const coverImage = normalizeIssueImage(issue.images?.[0]);
 
   // Safely format date - handles both Date objects and string dates
   const formatDate = (date: Date | string | undefined) => {
@@ -86,11 +88,14 @@ const IssueCard = ({ issue }: IssueCardProps) => {
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-[#FF7722]/20">
         {/* Image Section */}
         <div className="relative aspect-video bg-gray-100 overflow-hidden">
-          {issue.images && issue.images.length > 0 ? (
+          {coverImage ? (
             <img 
-              src={issue.images[0]} 
+              src={coverImage}
               alt={issue.title} 
               className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+              onError={(e) => {
+                e.currentTarget.src = '/placeholder.svg';
+              }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">

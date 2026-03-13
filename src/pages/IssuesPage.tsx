@@ -6,6 +6,7 @@ import { Megaphone, Filter, Search, Loader2 } from "lucide-react";
 import { Issue } from "@/types";
 import { IssueRecord } from "@/services/database";
 import { IndianState } from "@/types/location";
+import { normalizeIssueImages } from "@/lib/images";
 
 // Helper to convert IssueRecord to Issue type
 const convertToIssue = (record: IssueRecord): Issue => {
@@ -47,7 +48,7 @@ const convertToIssue = (record: IssueRecord): Issue => {
     },
     reportedBy: record.reportedBy,
     reportedAt: new Date(record.timestamp),
-    images: record.images.length > 0 ? record.images : ['/placeholder.svg'],
+    images: normalizeIssueImages(record.images),
     duration: record.duration,
     upvotes: record.upvotes,
     comments: []

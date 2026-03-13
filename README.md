@@ -108,6 +108,18 @@ ROBOFLOW_GARBAGE_MODEL_ID=garbage-detection-aylah/9
 In Vercel, add the server keys in Project Settings → Environment Variables.
 The frontend now calls `/api/ai/*` routes, so these keys are never exposed to users.
 
+### Optional: One-Time Seed Data
+
+Seeding is optional and not required on every run.
+
+```bash
+# Seed only if database is empty
+npm run seed
+
+# Force reset and re-seed (only when you explicitly want fresh demo data)
+npm run seed:force
+```
+
 ## 📁 Project Structure
 
 ```
@@ -144,6 +156,8 @@ bol-bharat/
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
+| `npm run seed` | Optional one-time seed if DB is empty |
+| `npm run seed:force` | Optional reset + re-seed for demo data |
 
 ## 🔌 API Reference
 

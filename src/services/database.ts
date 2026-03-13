@@ -9,6 +9,42 @@ import { Issue, IssueCategory, IssueStatus, IssuePriority, GeoLocation } from "@
 import { MLAnalysisResult, HotspotPrediction } from "./mlService";
 import { mockIssues } from "@/data/mockData";
 
+const LOCAL_ISSUES_STORAGE_KEY = "bolbharat.local.issues";
+
+function loadLocalIssueRecords(): IssueRecord[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_ISSUES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalIssueRecords(issues: IssueRecord[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LOCAL_ISSUES_STORAGE_KEY, JSON.stringify(issues));
+  } catch {
+    // Ignore storage failures in private/incognito modes.
+  }
+}
+
+function getFallbackIssueRecords(options?: {
+  category?: IssueCategory;
+  status?: IssueStatus;
+  limit?: number;
+}): IssueRecord[] {
+  let records = [...getMockIssueRecords(), ...loadLocalIssueRecords()];
+  if (options?.category) records = records.filter((r) => r.category === options.category);
+  if (options?.status) records = records.filter((r) => r.status === options.status);
+  records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  if (options?.limit) records = records.slice(0, options.limit);
+  return records;
+}
+
 // =============================================================================
 // Mock data helper – used as fallback when Firebase is unavailable
 // =============================================================================
@@ -170,7 +206,21 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
  * Create a new issue in the database
  */
 export async function createIssue(issue: Omit<IssueRecord, 'id'>): Promise<string> {
-  if (!db) throw new Error("Database not initialized");
+  if (!db || !isFirebaseConfigured) {
+    const localId = `local_${Date.now()}`;
+    const localIssues = loadLocalIssueRecords();
+    const localIssue: IssueRecord = {
+      ...issue,
+      id: localId,
+      timestamp: issue.timestamp || new Date().toISOString(),
+      status: issue.status || 'reported',
+      priority: issue.priority || 'medium',
+      upvotes: issue.upvotes || 0,
+      moderationStatus: 'pending',
+    };
+    saveLocalIssueRecords([localIssue, ...localIssues]);
+    return localId;
+  }
   
   const issuesRef = ref(db, "issues");
   const newIssueRef = push(issuesRef);
@@ -200,7 +250,11 @@ export async function createIssue(issue: Omit<IssueRecord, 'id'>): Promise<strin
  * Get a single issue by ID
  */
 export async function getIssueById(issueId: string): Promise<IssueRecord | null> {
-  if (!db) throw new Error("Database not initialized");
+  if (!db || !isFirebaseConfigured) {
+    const local = loadLocalIssueRecords().find((issue) => issue.id === issueId);
+    if (local) return local;
+    return getMockIssueRecords().find((issue) => issue.id === issueId) || null;
+  }
   
   const issueRef = ref(db, `issues/${issueId}`);
   const snapshot = await get(issueRef);
@@ -220,8 +274,8 @@ export async function getIssues(options?: {
   limit?: number;
 }): Promise<IssueRecord[]> {
   if (!db || !isFirebaseConfigured) {
-    console.warn("Firebase not configured – returning mock data");
-    return getMockIssueRecords(options);
+    console.warn("Firebase not configured – returning fallback issues");
+    return getFallbackIssueRecords(options);
   }
   
   try {
@@ -245,8 +299,8 @@ export async function getIssues(options?: {
     
     return issues;
   } catch (error) {
-    console.error("Firebase getIssues failed, using mock data:", error);
-    return getMockIssueRecords(options);
+    console.error("Firebase getIssues failed, using fallback issues:", error);
+    return getFallbackIssueRecords(options);
   }
 }
 
@@ -308,8 +362,8 @@ export function subscribeToIssues(
   callback: (issues: IssueRecord[]) => void
 ): () => void {
   if (!db || !isFirebaseConfigured) {
-    console.warn("Firebase not configured – serving mock data via subscribeToIssues");
-    callback(getMockIssueRecords());
+    console.warn("Firebase not configured – serving fallback issues via subscribeToIssues");
+    callback(getFallbackIssueRecords());
     return () => {};
   }
   
@@ -325,11 +379,11 @@ export function subscribeToIssues(
         });
       }
       // If Firebase returned nothing, fall back to mock data
-      callback(issues.length > 0 ? issues : getMockIssueRecords());
+      callback(issues.length > 0 ? issues : getFallbackIssueRecords());
     },
     (error) => {
-      console.error("Firebase realtime subscription error, using mock data:", error);
-      callback(getMockIssueRecords());
+      console.error("Firebase realtime subscription error, using fallback issues:", error);
+      callback(getFallbackIssueRecords());
     }
   );
   
