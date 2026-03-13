@@ -3,8 +3,8 @@
  * Handles image uploads, compression, and management
  */
 
-import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
-import { storage } from "@/lib/utils";
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll, getStorage, FirebaseStorage } from "firebase/storage";
+import { app, storage } from "@/lib/utils";
 
 // =============================================================================
 // Types
@@ -76,20 +76,41 @@ export async function uploadImage(
     const extension = file.name.split('.').pop() || 'jpg';
     const path = `issues/${issueId}/${timestamp}_${index}.${extension}`;
     
-    const storageRef = ref(storage, path);
-    
-    // Upload file
-    const snapshot = await uploadBytes(storageRef, file, {
-      contentType: file.type,
-      customMetadata: {
-        issueId,
-        uploadedAt: new Date().toISOString(),
-        originalName: file.name
+    const uploadUsingStorage = async (targetStorage: FirebaseStorage) => {
+      const storageRef = ref(targetStorage, path);
+      const snapshot = await uploadBytes(storageRef, file, {
+        contentType: file.type,
+        customMetadata: {
+          issueId,
+          uploadedAt: new Date().toISOString(),
+          originalName: file.name
+        }
+      });
+
+      const url = await getDownloadURL(snapshot.ref);
+      return { url };
+    };
+
+    let url: string;
+    try {
+      const primary = await uploadUsingStorage(storage);
+      url = primary.url;
+    } catch (primaryError) {
+      const primaryBucket = storage.app.options.storageBucket || "";
+      const alternateBucket = primaryBucket.endsWith(".firebasestorage.app")
+        ? `${storage.app.options.projectId}.appspot.com`
+        : primaryBucket.endsWith(".appspot.com")
+          ? `${storage.app.options.projectId}.firebasestorage.app`
+          : "";
+
+      if (!app || !alternateBucket || alternateBucket === primaryBucket) {
+        throw primaryError;
       }
-    });
-    
-    // Get download URL
-    const url = await getDownloadURL(snapshot.ref);
+
+      const altStorage = getStorage(app, `gs://${alternateBucket}`);
+      const fallback = await uploadUsingStorage(altStorage);
+      url = fallback.url;
+    }
     
     return {
       success: true,

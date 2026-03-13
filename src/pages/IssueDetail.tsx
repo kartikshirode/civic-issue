@@ -10,8 +10,9 @@ import { MapPin, Clock, ThumbsUp, ArrowLeft, Calendar, Share2 } from "lucide-rea
 import { Issue } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { onValue, ref, get, update } from "firebase/database"; // Import Firebase operations
-import { db } from "@/lib/utils"; // Import Firebase database instance
+import { db, isFirebaseConfigured } from "@/lib/utils"; // Import Firebase database instance
 import { normalizeIssueImages } from "@/lib/images";
+import { apiGetIssue } from "@/services/api";
 
 const IssueDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -37,18 +38,11 @@ const IssueDetail = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch directly from Firebase
       try {
-        if (!db) {
-          throw new Error("Firebase database is not initialized");
-        }
-        
-        // Use Firebase SDK instead of fetch
-        const issueRef = ref(db, `issues/${id}`);
-        const snapshot = await get(issueRef);
-        
-        if (snapshot.exists()) {
-          const data = snapshot.val();
+        const issueRecord = await apiGetIssue(id);
+
+        if (issueRecord) {
+          const data = issueRecord;
           const locationText = typeof data.location === 'string'
             ? data.location
             : (data.locationData?.address || data.location?.address || '');
@@ -58,7 +52,7 @@ const IssueDetail = () => {
           const normalizedImages = normalizeIssueImages(data.images ?? (data.image ? [data.image] : []));
 
           const formattedIssue: Issue = {
-            id: id || '',
+            id: data.id || id || '',
             title: data.title || '',
             description: data.description || '',
             category: data.category || 'other',
@@ -104,7 +98,7 @@ const IssueDetail = () => {
 
   // Set up real-time listener for upvotes
   useEffect(() => {
-    if (!id || !db || !issue || issue.id !== id) return;
+    if (!id || !db || !isFirebaseConfigured || !issue || issue.id !== id) return;
     
     const upvotesRef = ref(db, `issues/${id}/upvotes`);
     const unsubscribe = onValue(upvotesRef, (snapshot) => {

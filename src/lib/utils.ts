@@ -8,15 +8,36 @@ import { getAnalytics } from "firebase/analytics";
 import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
 
+const normalizeMeasurementId = (value?: string) => {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/^G-G/, "G-");
+};
+
+const normalizeStorageBucket = (bucket: string | undefined, projectId: string) => {
+  const raw = (bucket || "").trim();
+  if (!raw) return `${projectId}.appspot.com`;
+
+  // Firebase Web SDK upload endpoints are more reliable with appspot.com bucket names.
+  if (raw.endsWith(".firebasestorage.app")) {
+    return `${projectId}.appspot.com`;
+  }
+
+  return raw.replace(/\/+$/, "");
+};
+
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "bol-bharat-dev";
+
 // Use environment variables if available, otherwise use defaults for development
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDevelopmentKeyForLocalTesting",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "bol-bharat-dev.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "bol-bharat-dev",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "bol-bharat-dev.appspot.com",
+  projectId,
+  storageBucket: normalizeStorageBucket(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, projectId),
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789012:web:abcdef1234567890",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-ABCDEF1234",
+  measurementId: normalizeMeasurementId(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) || "G-ABCDEF1234",
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://bol-bharat-dev-default-rtdb.firebaseio.com",
 };
 

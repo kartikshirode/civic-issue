@@ -10,6 +10,7 @@ import { MLAnalysisResult, HotspotPrediction } from "./mlService";
 import { mockIssues } from "@/data/mockData";
 
 const LOCAL_ISSUES_STORAGE_KEY = "bolbharat.local.issues";
+const localIssueSubscribers = new Set<(issues: IssueRecord[]) => void>();
 
 function loadLocalIssueRecords(): IssueRecord[] {
   if (typeof window === "undefined") return [];
@@ -30,6 +31,13 @@ function saveLocalIssueRecords(issues: IssueRecord[]): void {
   } catch {
     // Ignore storage failures in private/incognito modes.
   }
+}
+
+function notifyLocalIssueSubscribers(): void {
+  const issues = getFallbackIssueRecords();
+  localIssueSubscribers.forEach((callback) => {
+    callback(issues);
+  });
 }
 
 function getFallbackIssueRecords(options?: {
@@ -219,6 +227,7 @@ export async function createIssue(issue: Omit<IssueRecord, 'id'>): Promise<strin
       moderationStatus: 'pending',
     };
     saveLocalIssueRecords([localIssue, ...localIssues]);
+    notifyLocalIssueSubscribers();
     return localId;
   }
   
@@ -364,7 +373,10 @@ export function subscribeToIssues(
   if (!db || !isFirebaseConfigured) {
     console.warn("Firebase not configured – serving fallback issues via subscribeToIssues");
     callback(getFallbackIssueRecords());
-    return () => {};
+    localIssueSubscribers.add(callback);
+    return () => {
+      localIssueSubscribers.delete(callback);
+    };
   }
   
   const issuesRef = ref(db, "issues");
@@ -627,11 +639,15 @@ export async function deactivateExpiredHotspots(): Promise<number> {
  * Log an analytics event
  */
 export async function logAnalyticsEvent(event: AnalyticsEvent): Promise<void> {
-  if (!db) throw new Error("Database not initialized");
-  
-  const analyticsRef = ref(db, "analytics");
-  const newEventRef = push(analyticsRef);
-  await set(newEventRef, event);
+  if (!db || !isFirebaseConfigured) return;
+
+  try {
+    const analyticsRef = ref(db, "analytics");
+    const newEventRef = push(analyticsRef);
+    await set(newEventRef, event);
+  } catch (error) {
+    console.warn("Skipping analytics event write:", error);
+  }
 }
 
 /**

@@ -14,7 +14,7 @@ import { IssueCategory } from "@/types";
 import { apiCreateIssue, apiAnalyzeContent, MLAnalysisResult } from "@/services/api";
 import { analyzeWithGemini, analyzeWithNvidia, isGeminiConfigured, isNvidiaConfigured } from "@/services/geminiService";
 import { analyzeWithRoboflow, isRoboflowConfigured } from "@/services/roboflowService";
-import { extractGPSFromImage, uploadImage, validateImage } from "@/services/storage";
+import { compressImage, extractGPSFromImage, validateImage } from "@/services/storage";
 import { getDepartmentFromPincode, Department } from "@/data/departments";
 import { IndianState } from "@/types/location";
 import { resolveIssueLocation } from "@/lib/locationResolver";
@@ -352,7 +352,7 @@ const ReportForm = () => {
   };
   
   // Error validation
-  const validateForm = () => {
+  const validateForm = (): { valid: boolean; firstErrorField?: string } => {
     const newErrors: { [key: string]: string } = {};
     
     if (!title.trim()) newErrors.title = "Title is required";
@@ -363,7 +363,8 @@ const ReportForm = () => {
     if (!duration) newErrors.duration = "Expected resolution time is required";
     
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const firstErrorField = Object.keys(newErrors)[0];
+    return { valid: Object.keys(newErrors).length === 0, firstErrorField };
   };
   
   // Handle image addition from URL
@@ -400,13 +401,30 @@ const ReportForm = () => {
   };
   
   // Submit form
+  const fileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+        } else {
+          reject(new Error("Failed to read image"));
+        }
+      };
+      reader.onerror = () => reject(new Error("Failed to read image"));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    const validation = validateForm();
+    if (!validation.valid) {
       // Scroll to the first error
-      const firstErrorField = Object.keys(errors)[0];
-      document.getElementById(firstErrorField)?.focus();
+      if (validation.firstErrorField) {
+        document.getElementById(validation.firstErrorField)?.focus();
+      }
       return;
     }
     
@@ -420,17 +438,24 @@ const ReportForm = () => {
         stateHint: detectedState,
       });
 
-      // Upload any new image files to Firebase (for files uploaded via file input)
-      let finalImages = images.filter(url => url.startsWith('http'));
+      // Store images directly in Realtime Database as URLs/data URLs (no Firebase Storage dependency)
+      let finalImages = images.filter((url) => url.startsWith('http') || url.startsWith('data:image/'));
       
       if (imageFiles.length > 0) {
-        const issueId = `issue_${Date.now()}`;
-        
         for (let i = 0; i < imageFiles.length; i++) {
-          const file = imageFiles[i];
-          const uploadResult = await uploadImage(file, issueId, i);
-          if (uploadResult.success && uploadResult.url) {
-            finalImages.push(uploadResult.url);
+          try {
+            let fileToStore = imageFiles[i];
+            // Compress large images to keep DB payload practical.
+            if (fileToStore.size > 1024 * 1024) {
+              fileToStore = await compressImage(fileToStore, 1280, 0.72);
+            }
+
+            const dataUrl = await fileToDataUrl(fileToStore);
+            if (!finalImages.includes(dataUrl)) {
+              finalImages.push(dataUrl);
+            }
+          } catch (error) {
+            console.error("Failed to encode image for DB:", error);
           }
         }
       }
