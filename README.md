@@ -1,5 +1,5 @@
 # BOL BHARAT 🇮🇳
-opencode -s ses_31cbac5bfffezC77TzwyMlxBLE
+
 > **Speak Up, India!** — A civic issue reporting platform empowering citizens to report and track community problems.
 
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)](https://reactjs.org/)
@@ -82,17 +82,31 @@ bun dev
 
 ### Environment Variables
 
-Create a `.env` file with your Firebase configuration:
+Use two groups of variables:
+
+1. `VITE_FIREBASE_*` for Firebase client config (public, safe for browser)
+2. Server-only keys for AI routes (private, stored in Vercel Project Settings)
 
 ```env
+# Client (public Firebase config)
 VITE_FIREBASE_API_KEY=your_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
-VITE_FIREBASE_DATABASE_URL=https://your_project.firebaseio.com
+VITE_FIREBASE_DATABASE_URL=https://your_project-default-rtdb.firebaseio.com
+
+# Server-only secrets (DO NOT prefix with VITE)
+NVIDIA_API_KEY=your_nvidia_key
+GEMINI_API_KEY=your_gemini_key
+ROBOFLOW_API_KEY=your_roboflow_key
+ROBOFLOW_POTHOLE_MODEL_ID=pothole-detection-sjbkl/5
+ROBOFLOW_GARBAGE_MODEL_ID=garbage-detection-aylah/9
 ```
+
+In Vercel, add the server keys in Project Settings → Environment Variables.
+The frontend now calls `/api/ai/*` routes, so these keys are never exposed to users.
 
 ## 📁 Project Structure
 

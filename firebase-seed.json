@@ -1,0 +1,586 @@
+{
+  "issues": {
+    "issue_001": {
+      "title": "Severe potholes on FC Road",
+      "description": "Multiple deep potholes causing traffic slowdown and accidents for two-wheelers.",
+      "category": "roads",
+      "priority": "medium",
+      "status": "reported",
+      "location": "FC Road",
+      "pincode": "411005",
+      "locationData": {
+        "lat": 18.5204,
+        "lng": 73.8410,
+        "address": "FC Road, Pune",
+        "city": "Pune",
+        "district": "Pune",
+        "state": "Maharashtra"
+      },
+      "department": "Public Works Department, Maharashtra",
+      "departmentShortName": "PWD",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "2 weeks",
+      "images": [
+        {
+          "url": "https://c.files.bbci.co.uk/97DE/production/_132287883_potholes.jpg",
+          "uploadedAt": "2025-04-10T10:00:00Z"
+        }
+      ],
+      "upvotes": 92,
+      "views": 310,
+      "commentsCount": 14,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-10T10:00:00Z",
+      "lastUpdated": "2025-04-10T10:00:00Z"
+    },
+
+    "issue_002": {
+      "title": "Overflowing garbage bins",
+      "description": "Garbage not collected for 4 days causing foul smell and health hazards.",
+      "category": "sanitation",
+      "priority": "medium",
+      "status": "reported",
+      "location": "Kothrud",
+      "pincode": "411038",
+      "locationData": {
+        "lat": 18.5074,
+        "lng": 73.8077,
+        "address": "Kothrud, Pune",
+        "city": "Pune",
+        "district": "Pune",
+        "state": "Maharashtra"
+      },
+      "department": "Pune Municipal Corporation",
+      "departmentShortName": "PMC",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "4 days",
+      "images": [
+        {
+          "url": "https://www.newagebd.com/files/records/news/202307/207434_186.jpg",
+          "uploadedAt": "2025-04-09T12:30:00Z"
+        }
+      ],
+      "upvotes": 65,
+      "views": 210,
+      "commentsCount": 7,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-09T12:30:00Z",
+      "lastUpdated": "2025-04-09T12:30:00Z"
+    },
+
+    "issue_003": {
+      "title": "Streetlights not working",
+      "description": "Streetlights not functioning for over a week making the road unsafe at night.",
+      "category": "electricity",
+      "priority": "high",
+      "status": "in_progress",
+      "location": "MG Road",
+      "pincode": "400001",
+      "locationData": {
+        "lat": 18.9388,
+        "lng": 72.8354,
+        "address": "MG Road, Mumbai",
+        "city": "Mumbai",
+        "district": "Mumbai",
+        "state": "Maharashtra"
+      },
+      "department": "Maharashtra State Electricity Distribution Co Ltd",
+      "departmentShortName": "MSEDCL",
+      "departmentStatus": "working",
+      "reportedBy": "anonymous",
+      "duration": "1 week",
+      "images": [
+        {
+          "url": "https://media.istockphoto.com/id/1076480852/photo/broken-street-lamp-in-city.jpg",
+          "uploadedAt": "2025-04-08T18:45:00Z"
+        }
+      ],
+      "upvotes": 140,
+      "views": 402,
+      "commentsCount": 23,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-08T18:45:00Z",
+      "lastUpdated": "2025-04-08T18:45:00Z"
+    },
+
+    "issue_004": {
+      "title": "Burst water pipeline",
+      "description": "Major water leakage flooding the street and wasting large amounts of water.",
+      "category": "water",
+      "priority": "urgent",
+      "status": "in_progress",
+      "location": "Connaught Place",
+      "pincode": "110001",
+      "locationData": {
+        "lat": 28.6315,
+        "lng": 77.2167,
+        "address": "Connaught Place, Delhi",
+        "city": "Delhi",
+        "district": "Central Delhi",
+        "state": "Delhi"
+      },
+      "department": "Delhi Jal Board",
+      "departmentShortName": "DJB",
+      "departmentStatus": "assigned",
+      "reportedBy": "anonymous",
+      "duration": "2 days",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1584824486509-112e4181ff6b?w=800",
+          "uploadedAt": "2025-04-07T09:30:00Z"
+        }
+      ],
+      "upvotes": 210,
+      "views": 620,
+      "commentsCount": 41,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-07T09:30:00Z",
+      "lastUpdated": "2025-04-07T09:30:00Z"
+    },
+
+    "issue_005": {
+      "title": "Broken playground equipment",
+      "description": "Children's park equipment damaged and unsafe.",
+      "category": "public-spaces",
+      "priority": "medium",
+      "status": "reported",
+      "location": "Cubbon Park",
+      "pincode": "560001",
+      "locationData": {
+        "lat": 12.9763,
+        "lng": 77.5929,
+        "address": "Cubbon Park, Bengaluru",
+        "city": "Bengaluru",
+        "district": "Bengaluru Urban",
+        "state": "Karnataka"
+      },
+      "department": "Bruhat Bengaluru Mahanagara Palike",
+      "departmentShortName": "BBMP",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "1 month",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1564429238980-16e365e0d21d?w=800",
+          "uploadedAt": "2025-04-06T14:20:00Z"
+        }
+      ],
+      "upvotes": 72,
+      "views": 185,
+      "commentsCount": 9,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-06T14:20:00Z"
+    },
+
+    "issue_006": {
+      "title": "Traffic signal malfunction",
+      "description": "Signal lights not working causing traffic chaos during peak hours.",
+      "category": "transportation",
+      "priority": "high",
+      "status": "reported",
+      "location": "Anna Salai",
+      "pincode": "600002",
+      "locationData": {
+        "lat": 13.0827,
+        "lng": 80.2707,
+        "address": "Anna Salai, Chennai",
+        "city": "Chennai",
+        "district": "Chennai",
+        "state": "Tamil Nadu"
+      },
+      "department": "Chennai Traffic Police",
+      "departmentShortName": "CTP",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "3 days",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=800",
+          "uploadedAt": "2025-04-05T11:00:00Z"
+        }
+      ],
+      "upvotes": 101,
+      "views": 330,
+      "commentsCount": 19,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-05T11:00:00Z"
+    },
+
+    "issue_007": {
+      "title": "Dangerous pothole after rain",
+      "description": "Large crater-like pothole damaging vehicles.",
+      "category": "roads",
+      "priority": "high",
+      "status": "in_progress",
+      "location": "Jubilee Hills",
+      "pincode": "500033",
+      "locationData": {
+        "lat": 17.4326,
+        "lng": 78.4071,
+        "address": "Jubilee Hills, Hyderabad",
+        "city": "Hyderabad",
+        "district": "Hyderabad",
+        "state": "Telangana"
+      },
+      "department": "Roads & Buildings Department Telangana",
+      "departmentShortName": "R&B",
+      "departmentStatus": "working",
+      "reportedBy": "anonymous",
+      "duration": "1 week",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
+          "uploadedAt": "2025-04-04T08:45:00Z"
+        }
+      ],
+      "upvotes": 176,
+      "views": 480,
+      "commentsCount": 28,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-04T08:45:00Z"
+    },
+
+    "issue_008": {
+      "title": "No water supply for 3 days",
+      "description": "Residents forced to buy private tankers due to lack of supply.",
+      "category": "water",
+      "priority": "urgent",
+      "status": "in_progress",
+      "location": "Gomti Nagar",
+      "pincode": "226010",
+      "locationData": {
+        "lat": 26.8467,
+        "lng": 80.9462,
+        "address": "Gomti Nagar, Lucknow",
+        "city": "Lucknow",
+        "district": "Lucknow",
+        "state": "Uttar Pradesh"
+      },
+      "department": "UP Jal Nigam",
+      "departmentShortName": "UPJN",
+      "departmentStatus": "working",
+      "reportedBy": "anonymous",
+      "duration": "3 days",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1584822857614-dfc4844c7eb0?w=800",
+          "uploadedAt": "2025-04-03T07:30:00Z"
+        }
+      ],
+      "upvotes": 240,
+      "views": 680,
+      "commentsCount": 53,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-03T07:30:00Z"
+    },
+
+    "issue_009": {
+      "title": "Open drain overflow",
+      "description": "Drainage water spilling onto streets causing mosquito breeding.",
+      "category": "drainage",
+      "priority": "medium",
+      "status": "reported",
+      "location": "Salt Lake",
+      "pincode": "700091",
+      "locationData": {
+        "lat": 22.5726,
+        "lng": 88.3639,
+        "address": "Salt Lake, Kolkata",
+        "city": "Kolkata",
+        "district": "Kolkata",
+        "state": "West Bengal"
+      },
+      "department": "Kolkata Municipal Corporation",
+      "departmentShortName": "KMC",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "2 weeks",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=800",
+          "uploadedAt": "2025-04-02T16:00:00Z"
+        }
+      ],
+      "upvotes": 88,
+      "views": 240,
+      "commentsCount": 11,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-02T16:00:00Z"
+    },
+
+    "issue_010": {
+      "title": "Exposed electric wires",
+      "description": "Live electric wires hanging dangerously near school.",
+      "category": "electricity",
+      "priority": "urgent",
+      "status": "resolved",
+      "location": "MI Road",
+      "pincode": "302001",
+      "locationData": {
+        "lat": 26.9124,
+        "lng": 75.7873,
+        "address": "MI Road, Jaipur",
+        "city": "Jaipur",
+        "district": "Jaipur",
+        "state": "Rajasthan"
+      },
+      "department": "Jaipur Vidyut Vitran Nigam",
+      "departmentShortName": "JVVNL",
+      "departmentStatus": "completed",
+      "reportedBy": "anonymous",
+      "duration": "12 hours",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800",
+          "uploadedAt": "2025-04-01T12:15:00Z"
+        }
+      ],
+      "upvotes": 315,
+      "views": 900,
+      "commentsCount": 60,
+      "moderationStatus": "approved",
+      "timestamp": "2025-04-01T12:15:00Z",
+      "resolvedAt": "2025-04-01T22:30:00Z"
+    },
+
+    "issue_011": {
+      "title": "Footpath encroachment by vendors",
+      "description": "Illegal vendors occupying entire sidewalk forcing pedestrians onto road.",
+      "category": "encroachment",
+      "priority": "low",
+      "status": "reported",
+      "location": "CG Road",
+      "pincode": "380006",
+      "locationData": {
+        "lat": 23.0225,
+        "lng": 72.5714,
+        "address": "CG Road, Ahmedabad",
+        "city": "Ahmedabad",
+        "district": "Ahmedabad",
+        "state": "Gujarat"
+      },
+      "department": "Ahmedabad Municipal Corporation",
+      "departmentShortName": "AMC",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "3 months",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800",
+          "uploadedAt": "2025-03-31T10:30:00Z"
+        }
+      ],
+      "upvotes": 55,
+      "views": 150,
+      "commentsCount": 6,
+      "moderationStatus": "approved",
+      "timestamp": "2025-03-31T10:30:00Z"
+    },
+
+    "issue_012": {
+      "title": "Collapsed bus shelter",
+      "description": "Bus stop roof collapsed leaving commuters exposed to sun and rain.",
+      "category": "transportation",
+      "priority": "medium",
+      "status": "reported",
+      "location": "Viman Nagar",
+      "pincode": "411014",
+      "locationData": {
+        "lat": 18.5679,
+        "lng": 73.9143,
+        "address": "Viman Nagar, Pune",
+        "city": "Pune",
+        "district": "Pune",
+        "state": "Maharashtra"
+      },
+      "department": "Pune Municipal Corporation",
+      "departmentShortName": "PMC",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "1 week",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800",
+          "uploadedAt": "2025-03-30T09:00:00Z"
+        }
+      ],
+      "upvotes": 44,
+      "views": 110,
+      "commentsCount": 4,
+      "moderationStatus": "approved",
+      "timestamp": "2025-03-30T09:00:00Z"
+    },
+
+    "issue_013": {
+      "title": "Stray dog attacks",
+      "description": "Aggressive stray dogs attacking pedestrians and children.",
+      "category": "animals",
+      "priority": "high",
+      "status": "in_progress",
+      "location": "Indiranagar",
+      "pincode": "560038",
+      "locationData": {
+        "lat": 12.9716,
+        "lng": 77.6412,
+        "address": "Indiranagar, Bengaluru",
+        "city": "Bengaluru",
+        "district": "Bengaluru Urban",
+        "state": "Karnataka"
+      },
+      "department": "BBMP Animal Control",
+      "departmentShortName": "BBMP",
+      "departmentStatus": "assigned",
+      "reportedBy": "anonymous",
+      "duration": "1 month",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800",
+          "uploadedAt": "2025-03-29T06:45:00Z"
+        }
+      ],
+      "upvotes": 199,
+      "views": 500,
+      "commentsCount": 31,
+      "moderationStatus": "approved",
+      "timestamp": "2025-03-29T06:45:00Z"
+    },
+
+    "issue_014": {
+      "title": "Road cave-in",
+      "description": "Half of the road collapsed due to underground construction.",
+      "category": "roads",
+      "priority": "high",
+      "status": "in_progress",
+      "location": "Sector 17",
+      "pincode": "160017",
+      "locationData": {
+        "lat": 30.7333,
+        "lng": 76.7794,
+        "address": "Sector 17, Chandigarh",
+        "city": "Chandigarh",
+        "district": "Chandigarh",
+        "state": "Chandigarh"
+      },
+      "department": "Municipal Corporation Chandigarh",
+      "departmentShortName": "MCC",
+      "departmentStatus": "working",
+      "reportedBy": "anonymous",
+      "duration": "5 days",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1545558014-8692077e9b5c?w=800",
+          "uploadedAt": "2025-03-28T14:30:00Z"
+        }
+      ],
+      "upvotes": 111,
+      "views": 350,
+      "commentsCount": 15,
+      "moderationStatus": "approved",
+      "timestamp": "2025-03-28T14:30:00Z"
+    },
+
+    "issue_015": {
+      "title": "Contaminated water supply",
+      "description": "Water supply appears yellow and foul smelling.",
+      "category": "water",
+      "priority": "urgent",
+      "status": "reported",
+      "location": "Bandra West",
+      "pincode": "400050",
+      "locationData": {
+        "lat": 19.0596,
+        "lng": 72.8295,
+        "address": "Bandra West, Mumbai",
+        "city": "Mumbai",
+        "district": "Mumbai",
+        "state": "Maharashtra"
+      },
+      "department": "Mumbai Water Department",
+      "departmentShortName": "MWD",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "1 week",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1562016600-ece13e8ba570?w=800",
+          "uploadedAt": "2025-03-27T08:00:00Z"
+        }
+      ],
+      "upvotes": 276,
+      "views": 760,
+      "commentsCount": 44,
+      "moderationStatus": "approved",
+      "timestamp": "2025-03-27T08:00:00Z"
+    },
+
+    "issue_016": {
+      "title": "Blocked stormwater drain",
+      "description": "Drain clogged with plastic waste causing flooding during rain.",
+      "category": "drainage",
+      "priority": "medium",
+      "status": "reported",
+      "location": "Borivali East",
+      "pincode": "400066",
+      "locationData": {
+        "lat": 19.2290,
+        "lng": 72.8570,
+        "address": "Borivali East, Mumbai",
+        "city": "Mumbai",
+        "district": "Mumbai",
+        "state": "Maharashtra"
+      },
+      "department": "BMC Drainage Department",
+      "departmentShortName": "BMC",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "5 days",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1524593119779-9d1c00f85c82?w=800",
+          "uploadedAt": "2025-03-26T10:00:00Z"
+        }
+      ],
+      "upvotes": 84,
+      "views": 210,
+      "commentsCount": 8,
+      "moderationStatus": "approved",
+      "timestamp": "2025-03-26T10:00:00Z"
+    },
+
+    "issue_017": {
+      "title": "Damaged public toilet",
+      "description": "Public toilet facility unusable due to broken doors and poor hygiene.",
+      "category": "public-spaces",
+      "priority": "low",
+      "status": "reported",
+      "location": "India Gate Area",
+      "pincode": "110001",
+      "locationData": {
+        "lat": 28.6129,
+        "lng": 77.2295,
+        "address": "India Gate, Delhi",
+        "city": "Delhi",
+        "district": "New Delhi",
+        "state": "Delhi"
+      },
+      "department": "NDMC",
+      "departmentShortName": "NDMC",
+      "departmentStatus": "pending",
+      "reportedBy": "anonymous",
+      "duration": "2 weeks",
+      "images": [
+        {
+          "url": "https://images.unsplash.com/photo-1590077428593-a55bb07c4665?w=800",
+          "uploadedAt": "2025-03-25T13:00:00Z"
+        }
+      ],
+      "upvotes": 36,
+      "views": 95,
+      "commentsCount": 3,
+      "moderationStatus": "approved",
+      "timestamp": "2025-03-25T13:00:00Z"
+    }
+  }
+}

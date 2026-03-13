@@ -14,7 +14,7 @@ import { db } from "@/lib/utils"; // Import Firebase db
 
 const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
   const [issues, setIssues] = useState<Issue[]>(propIssues || []);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!propIssues);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | IssueCategory>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | IssueStatus>("all");
@@ -28,6 +28,14 @@ const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
   const [availableVillages, setAvailableVillages] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
+
+  // Sync prop issues into local state whenever the parent updates them
+  useEffect(() => {
+    if (propIssues) {
+      setIssues(propIssues);
+      setLoading(false);
+    }
+  }, [propIssues]);
 
   // Fetch issues from Firebase on component mount
   useEffect(() => {
