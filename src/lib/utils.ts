@@ -12,7 +12,18 @@ const normalizeMeasurementId = (value?: string) => {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
-  return trimmed.replace(/^G-G/, "G-");
+
+  let normalized = trimmed.replace(/\s+/g, "");
+
+  // Fix accidental "G-G-XXXX" pattern into valid "G-XXXX".
+  if (normalized.startsWith("G-G-")) {
+    normalized = `G-${normalized.slice(4)}`;
+  }
+
+  // Collapse repeated dashes if malformed values exist.
+  normalized = normalized.replace(/^G--+/, "G-");
+
+  return normalized;
 };
 
 const normalizeStorageBucket = (bucket: string | undefined, projectId: string) => {

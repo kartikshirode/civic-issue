@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from 'react-router-dom';
 import { Issue, IssueCategory, IssueStatus, IssuePriority } from "@/types";
 import IssueCard from "./IssueCard";
 import { Input } from "@/components/ui/input";
@@ -9,8 +8,9 @@ import { categoryOptions, statusOptions, priorityOptions } from "@/data/mockData
 import { indianStates, districtsByState, citiesByDistrict, villagesByDistrict } from "@/data/indiaLocations";
 import { IndianState } from "@/types/location";
 import { MapPin, ChevronDown, ChevronUp, Filter } from "lucide-react";
-import { onValue, ref, get } from "firebase/database"; // Add Firebase imports
+import { get, ref } from "firebase/database";
 import { db } from "@/lib/utils"; // Import Firebase db
+import { normalizeIssueImages } from "@/lib/images";
 
 const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
   const [issues, setIssues] = useState<Issue[]>(propIssues || []);
@@ -27,7 +27,6 @@ const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [availableVillages, setAvailableVillages] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const navigate = useNavigate();
 
   // Sync prop issues into local state whenever the parent updates them
   useEffect(() => {
@@ -90,7 +89,7 @@ const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
                 },
                 reportedBy: 'user1',
                 reportedAt: new Date(issueData.timestamp || Date.now()),
-                images: issueData.image ? [issueData.image] : [],
+                images: normalizeIssueImages(issueData.images ?? (issueData.image ? [issueData.image] : [])),
                 duration: issueData.duration || '',
                 upvotes: issueData.upvotes || 0,
                 comments: []
@@ -112,38 +111,6 @@ const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
       fetchIssues();
     }
   }, [propIssues]);
-
-  // Add a real-time listener for upvotes changes in Firebase
-  useEffect(() => {
-    // Only set up listeners if issues are loaded and db is initialized
-    if (issues.length === 0 || loading || !db) return;
-    
-    // Get all Firebase issue IDs
-    const firebaseIssueIds = issues.map(issue => issue.id);
-    
-    // Set up listeners for each Firebase issue
-    const unsubscribers = firebaseIssueIds.map(issueId => {
-      const upvotesRef = ref(db, `issues/${issueId}/upvotes`);
-      
-      return onValue(upvotesRef, (snapshot) => {
-        const newUpvotes = snapshot.val() || 0;
-        
-        // Update the specific issue's upvotes
-        setIssues(prevIssues => 
-          prevIssues.map(issue => 
-            issue.id === issueId ? { ...issue, upvotes: newUpvotes } : issue
-          )
-        );
-      }, (error) => {
-        console.error(`Error listening to upvotes for issue ${issueId}:`, error);
-      });
-    });
-    
-    // Clean up listeners on unmount
-    return () => {
-      unsubscribers.forEach(unsubscribe => unsubscribe && unsubscribe());
-    };
-  }, [issues, loading]);
 
   // Update available districts when state changes
   useEffect(() => {
@@ -196,11 +163,6 @@ const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
     return matchesSearch && matchesCategory && matchesStatus && matchesPriority &&
            matchesState && matchesDistrict && matchesCity && matchesVillage;
   });
-
-  // Navigate to issue details
-  const handleIssueClick = (issueId: string) => {
-    navigate(`/issues/${issueId}`);
-  };
 
   // Count active filters
   const activeFiltersCount = [
@@ -492,7 +454,6 @@ const IssuesList = ({ issues: propIssues }: { issues?: Issue[] }) => {
           filteredIssues.map((issue, index) => (
             <div 
               key={issue.id} 
-              onClick={() => handleIssueClick(issue.id)}
               className="animate-fade-in"
               style={{ animationDelay: `${index * 50}ms` }}
             >

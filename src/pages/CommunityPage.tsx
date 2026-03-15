@@ -30,6 +30,7 @@ import {
 import { Issue, IssueCategory } from "@/types";
 import { subscribeToIssues, upvoteIssue, IssueRecord } from "@/services/database";
 import { useToast } from "@/hooks/use-toast";
+import { normalizeIssueImages } from "@/lib/images";
 
 // Convert IssueRecord to Issue
 const convertToIssue = (record: IssueRecord): Issue => ({
@@ -46,7 +47,7 @@ const convertToIssue = (record: IssueRecord): Issue => ({
   },
   reportedBy: record.reportedBy,
   reportedAt: new Date(record.timestamp),
-  images: record.images || [],
+  images: normalizeIssueImages(record.images, ""),
   duration: record.duration,
   upvotes: record.upvotes || 0,
   comments: [],

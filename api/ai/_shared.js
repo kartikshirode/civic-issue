@@ -77,6 +77,39 @@ export function parseAIResponse(text) {
   }
 }
 
+export function fallbackResultFromText(userDescription = "", userLocation = "", hasImage = false) {
+  const text = String(userDescription || "").trim();
+  const lowered = text.toLowerCase();
+
+  let category = "other";
+  if (/(pothole|road|street|asphalt|crack)/.test(lowered)) category = "roads";
+  else if (/(water|drain|sewage|leak|flood)/.test(lowered)) category = "water";
+  else if (/(light|electric|power|wire|transformer)/.test(lowered)) category = "electricity";
+  else if (/(garbage|trash|waste|dirty|sanitation)/.test(lowered)) category = "sanitation";
+  else if (/(park|playground|public space|footpath|sidewalk)/.test(lowered)) category = "public-spaces";
+  else if (/(traffic|bus|transport|signal|metro)/.test(lowered)) category = "transportation";
+
+  const firstSentence = text.split(/[.!?]\s+/)[0]?.trim() || "Civic issue reported";
+  const titleBase = firstSentence.length > 58 ? `${firstSentence.slice(0, 55)}...` : firstSentence;
+  const title = titleBase || "Civic Issue Report";
+
+  return {
+    suggestedTitle: title,
+    enhancedDescription: text || "Issue report submitted by citizen.",
+    predictedCategory: category,
+    categoryConfidence: text ? 0.62 : 0.5,
+    isDuplicate: false,
+    isSpam: false,
+    spamScore: 0,
+    imageQuality: hasImage ? "good" : "fair",
+    imageQualityScore: hasImage ? 0.8 : 0.5,
+    extractedLocation: userLocation
+      ? { address: userLocation, lat: 0, lng: 0, confidence: 0.6 }
+      : undefined,
+    suggestedDuration: "1-2 weeks",
+  };
+}
+
 export function toMlResult(parsed, hasImage) {
   return {
     suggestedTitle: parsed?.title || "Civic Issue Report",

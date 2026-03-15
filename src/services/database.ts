@@ -148,6 +148,21 @@ export interface AnalyticsEvent {
   data: Record<string, any>;
 }
 
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedDeep(item)).filter((item) => item !== undefined) as T;
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, stripUndefinedDeep(v)]);
+    return Object.fromEntries(entries) as T;
+  }
+
+  return value;
+}
+
 // =============================================================================
 // Database Seeding (Load dummy data on initialization)
 // =============================================================================
@@ -415,10 +430,12 @@ export async function storeMLAnalysis(
   processingTimeMs: number
 ): Promise<void> {
   if (!db) throw new Error("Database not initialized");
+
+  const safeResult = stripUndefinedDeep(result);
   
   const analysisRecord: MLAnalysisRecord = {
     issueId,
-    result,
+    result: safeResult,
     analyzedAt: new Date().toISOString(),
     processingTimeMs,
     modelVersion: '1.0.0'
@@ -431,10 +448,10 @@ export async function storeMLAnalysis(
   
   // Update the issue with ML data
   await update(ref(db, `issues/${issueId}`), {
-    mlAnalysis: result,
+    mlAnalysis: safeResult,
     mlAnalyzedAt: analysisRecord.analyzedAt,
-    flaggedAsSpam: result.isSpam,
-    duplicateOf: result.duplicateIssueId || null
+    flaggedAsSpam: safeResult.isSpam,
+    duplicateOf: safeResult.duplicateIssueId || null
   });
   
   // Log analytics
@@ -443,34 +460,34 @@ export async function storeMLAnalysis(
     timestamp: analysisRecord.analyzedAt,
     data: {
       issueId,
-      category: result.predictedCategory,
-      confidence: result.categoryConfidence,
+      category: safeResult.predictedCategory,
+      confidence: safeResult.categoryConfidence,
       processingTimeMs
     }
   });
   
   // Log duplicate detection if found
-  if (result.isDuplicate) {
+  if (safeResult.isDuplicate) {
     await logAnalyticsEvent({
       type: 'duplicate_detected',
       timestamp: analysisRecord.analyzedAt,
       data: {
         issueId,
-        duplicateOf: result.duplicateIssueId,
-        similarity: result.duplicateSimilarity
+        duplicateOf: safeResult.duplicateIssueId,
+        similarity: safeResult.duplicateSimilarity
       }
     });
   }
   
   // Log spam detection if flagged
-  if (result.isSpam) {
+  if (safeResult.isSpam) {
     await logAnalyticsEvent({
       type: 'spam_detected',
       timestamp: analysisRecord.analyzedAt,
       data: {
         issueId,
-        spamScore: result.spamScore,
-        reasons: result.spamReasons
+        spamScore: safeResult.spamScore,
+        reasons: safeResult.spamReasons
       }
     });
   }

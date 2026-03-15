@@ -98,7 +98,7 @@ const IssueDetail = () => {
 
   // Set up real-time listener for upvotes
   useEffect(() => {
-    if (!id || !db || !isFirebaseConfigured || !issue || issue.id !== id) return;
+    if (!id || !db || !isFirebaseConfigured) return;
     
     const upvotesRef = ref(db, `issues/${id}/upvotes`);
     const unsubscribe = onValue(upvotesRef, (snapshot) => {
@@ -111,7 +111,7 @@ const IssueDetail = () => {
     });
     
     return () => unsubscribe();
-  }, [id, issue, db]);
+  }, [id]);
 
   const handleSupport = async () => {
     if (hasSupported || !issue || !id) return;

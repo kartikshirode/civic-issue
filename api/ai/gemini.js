@@ -1,4 +1,4 @@
-import { imageUrlToDataUrl, parseAIResponse, toMlResult } from "./_shared.js";
+import { fallbackResultFromText, imageUrlToDataUrl, parseAIResponse, toMlResult } from "./_shared.js";
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
@@ -11,6 +11,10 @@ export default async function handler(req, res) {
   try {
     const { imageUrl = "", userDescription = "", userLocation } = req.body || {};
 
+    if (!String(userDescription || "").trim() && !String(imageUrl || "").trim()) {
+      return res.status(400).json({ error: "Provide description or imageUrl" });
+    }
+
     const prompt = `You are analyzing a civic issue report from India.\n\nUser Description: ${userDescription || "No description provided"}\n${userLocation ? `Location: ${userLocation}` : ""}\n\nRespond with ONLY valid JSON:\n{"title":"clear title under 60 chars","description":"2-3 sentence description","category":"roads","confidence":0.85,"location":"specific location or null","duration":"1-3 months"}\n\nSTRICT: category must be one of roads, water, electricity, sanitation, public-spaces, transportation, other.`;
 
     const requestBody = {
@@ -20,6 +24,7 @@ export default async function handler(req, res) {
         topK: 32,
         topP: 0.95,
         maxOutputTokens: 512,
+        responseMimeType: "application/json",
       },
     };
 
@@ -50,7 +55,9 @@ export default async function handler(req, res) {
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const parsed = parseAIResponse(text);
-    if (!parsed) return res.status(422).json({ error: "Failed to parse Gemini response" });
+    if (!parsed) {
+      return res.status(200).json(fallbackResultFromText(userDescription, userLocation, Boolean(dataUrl)));
+    }
 
     return res.status(200).json(toMlResult(parsed, Boolean(dataUrl)));
   } catch (error) {
