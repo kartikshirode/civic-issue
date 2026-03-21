@@ -20,6 +20,34 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (id.includes("firebase")) {
+            return "firebase-vendor";
+          }
+
+          if (id.includes("@tanstack")) {
+            return "query-vendor";
+          }
+
+          if (id.includes("recharts") || id.includes("d3")) {
+            return "charts-vendor";
+          }
+
+          if (id.includes("lucide-react") || id.includes("date-fns")) {
+            return "ui-vendor";
+          }
+
+          return;
+        },
+      },
+    },
+  },
   define: {
     // Provide fallback values for development if env variables aren't set
     'import.meta.env.VITE_FIREBASE_API_KEY': JSON.stringify(process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || "AIzaSyDevelopmentKeyForLocalTesting"),

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Camera, MapPin, Clock, Upload, Trash2, FileText, AlertCircle, CheckCircle2, Loader2, Sparkles, Brain, AlertTriangle, Copy, Image, Wand2, Check, X, Cpu, Zap, ArrowLeft, ArrowRight, Building2, Phone, Mail, Upload as UploadIcon } from "lucide-react";
 import { categoryOptions, durationOptions } from "@/data/mockData";
 import { IssueCategory } from "@/types";
@@ -42,6 +43,7 @@ const ReportForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [formProgress, setFormProgress] = useState(0);
+  const [descriptionTab, setDescriptionTab] = useState<'ai-input' | 'form'>('ai-input');
   
   // Department state
   const [assignedDepartment, setAssignedDepartment] = useState<Department | null>(null);
@@ -113,8 +115,13 @@ const ReportForm = () => {
     setFormProgress(calculateProgress());
   }, [title, description, category, location, pincode, duration]);
   
-  // Run ML analysis - supports Roboflow (image), NVIDIA/Gemini (text)
-  const runMlAnalysis = async (imageUrl: string, userDesc: string, mode: AIMode = aiMode, imageFile?: File) => {
+  // Run ML analysis - mode is explicit to keep image/description flows independent
+  const runMlAnalysis = async (
+    mode: 'image' | 'description',
+    imageUrl: string,
+    userDesc: string,
+    imageFile?: File
+  ) => {
     setIsAnalyzing(true);
     setShowMlSuggestions(false);
     setAppliedSuggestions(new Set());
@@ -123,8 +130,8 @@ const ReportForm = () => {
       let result: MLAnalysisResult | null = null;
       let success = false;
       
-      // For Image Mode with file: ALWAYS use Roboflow first (ignore the check)
-      if (reportMode === 'image' && imageFile) {
+      // For image mode with file: use Roboflow first.
+      if (mode === 'image' && imageFile) {
         try {
           console.log("Using Roboflow for image analysis...");
           result = await analyzeWithRoboflow(imageFile);
@@ -144,7 +151,7 @@ const ReportForm = () => {
       }
       
       // Fallback to NVIDIA Vision (only if Roboflow failed or not image mode)
-      if (!success && (mode === 'nvidia' || reportMode === 'image') && nvidiaAvailable) {
+      if (!success && nvidiaAvailable) {
         try {
           result = await analyzeWithNvidia(imageUrl, userDesc, location || undefined);
           toast({
@@ -154,7 +161,7 @@ const ReportForm = () => {
           success = true;
         } catch (nvidiaError) {
           console.error("NVIDIA API error:", nvidiaError);
-          if (reportMode === 'image') {
+          if (mode === 'image') {
             toast({
               title: "NVIDIA AI Error",
               description: "NVIDIA failed. Trying Gemini...",
@@ -164,8 +171,8 @@ const ReportForm = () => {
         }
       }
       
-      // Fallback to Gemini (for description mode or if NVIDIA fails in image mode)
-      if (!success && (geminiAvailable || mode === 'gemini' || reportMode === 'description')) {
+      // Fallback to Gemini
+      if (!success && geminiAvailable) {
         try {
           result = await analyzeWithGemini(imageUrl, userDesc, location || undefined);
           toast({
@@ -295,7 +302,7 @@ const ReportForm = () => {
       
       // Trigger ML analysis automatically only in Image Mode
       if (reportMode === 'image' && newImages.length === 1) {
-        await runMlAnalysis(localPreviewUrl, description, aiMode, file);
+        await runMlAnalysis('image', localPreviewUrl, description, file);
       }
     } catch (error) {
       console.error("File processing error:", error);
@@ -312,20 +319,33 @@ const ReportForm = () => {
   
   // Manual trigger for AI analysis
   const triggerAiAnalysis = () => {
-    if (imageFiles.length > 0) {
-      runMlAnalysis(images[0], description, aiMode, imageFiles[0]);
-    } else if (images.length > 0) {
-      runMlAnalysis(images[0], description);
-    } else if (description.trim()) {
-      // Text-only analysis
-      runMlAnalysis('', description);
-    } else {
+    if (reportMode === 'image') {
+      if (imageFiles.length > 0) {
+        runMlAnalysis('image', images[0], description, imageFiles[0]);
+        return;
+      }
+      if (images.length > 0) {
+        runMlAnalysis('image', images[0], description);
+        return;
+      }
       toast({
         title: "Nothing to analyze",
-        description: "Please add an image or description first.",
+        description: "Please add an image first.",
         variant: "destructive",
       });
+      return;
     }
+
+    if (reportMode === 'description' && description.trim()) {
+      runMlAnalysis('description', '', description);
+      return;
+    }
+
+    toast({
+      title: "Nothing to analyze",
+      description: "Please add a description first.",
+      variant: "destructive",
+    });
   };
 
   // Apply a single ML suggestion
@@ -361,6 +381,7 @@ const ReportForm = () => {
     if (!location.trim()) newErrors.location = "Location is required";
     if (!pincode || pincode.length !== 6) newErrors.pincode = "Valid 6-digit pincode is required";
     if (!duration) newErrors.duration = "Expected resolution time is required";
+    if (images.length === 0) newErrors.images = "At least one image is required";
     
     setErrors(newErrors);
     const firstErrorField = Object.keys(newErrors)[0];
@@ -380,7 +401,7 @@ const ReportForm = () => {
         
         // Trigger ML analysis automatically only in Image Mode
         if (reportMode === 'image' && newImages.length === 1) {
-          await runMlAnalysis(imageURL, description);
+          await runMlAnalysis('image', imageURL, description);
         }
       }
       setImageURL("");
@@ -524,11 +545,151 @@ const ReportForm = () => {
       default: return 'text-gray-500';
     }
   };
+
+  const renderImagesSection = () => (
+    <Card id="images-section" className={`transition-all duration-200 ${errors.images ? 'border-red-300 shadow-red-100' : 'hover:shadow-md'}`}>
+      <CardContent className="pt-6">
+        <Label className="text-base flex items-center gap-2 mb-3">
+          <div className="p-1.5 bg-pink-100 rounded-lg">
+            <Camera className="h-4 w-4 text-pink-600" />
+          </div>
+          Add Images <span className="text-red-500">*</span>
+          {reportMode === 'image' ? (
+            <Badge variant="outline" className="ml-2 text-xs bg-green-50 border-green-500 text-green-700">
+              <Sparkles className="h-3 w-3 mr-1" />
+              Used for AI analysis
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="ml-2 text-xs bg-purple-50 border-purple-500 text-purple-700">
+              Required attachment only
+            </Badge>
+          )}
+        </Label>
+
+        <div className="mb-4">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            ref={fileInputRef}
+            className="hidden"
+            id="image-upload"
+            disabled={isSubmitting || isExtractingGPS || isAnalyzing}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className={`w-full border-2 border-dashed ${
+              reportMode === 'image'
+                ? 'border-blue-300 hover:border-blue-500 hover:bg-blue-50'
+                : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50'
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSubmitting || isExtractingGPS || isAnalyzing}
+          >
+            {isExtractingGPS || isAnalyzing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <UploadIcon className="h-4 w-4 mr-2" />
+            )}
+            {isExtractingGPS ? "Extracting GPS..." : isAnalyzing ? "Analyzing..." : "Upload image file"}
+          </Button>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            {reportMode === 'image'
+              ? 'Image mode: image is required and first image is used for AI analysis'
+              : 'Description mode: image is required, but AI uses text input only'}
+            {extractedGPS && (
+              <span className="text-green-600 ml-1">
+                • GPS extracted: {extractedGPS.lat.toFixed(4)}, {extractedGPS.lng.toFixed(4)}
+              </span>
+            )}
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Input
+            id="image-url"
+            placeholder="Paste image URL here"
+            value={imageURL}
+            onChange={(e) => setImageURL(e.target.value)}
+            disabled={isSubmitting}
+            className="flex-1"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddImage();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            onClick={handleAddImage}
+            disabled={!imageURL.trim() || isSubmitting}
+            className="bg-[#FF7722] hover:bg-[#FF7722]/90"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Add
+          </Button>
+        </div>
+
+        {errors.images && (
+          <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+            <AlertCircle className="h-3.5 w-3.5" />
+            {errors.images}
+          </p>
+        )}
+
+        {images.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+            {images.map((image, index) => (
+              <div key={index} className="relative group rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+                <div className="aspect-video">
+                  <img
+                    src={image}
+                    alt={`Issue image ${index + 1}`}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    onError={(e) => {
+                      e.currentTarget.src = '/placeholder.svg';
+                    }}
+                  />
+                </div>
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="shadow-lg"
+                    onClick={() => handleRemoveImage(index)}
+                    disabled={isSubmitting}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Remove
+                  </Button>
+                </div>
+                <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-medium text-gray-600">
+                  {index + 1}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
+            <Camera className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">No images added yet</p>
+            <p className="text-gray-400 text-xs mt-1">Add at least one image to continue</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
   
   // Handle mode selection and proceed to form
   const handleModeSelect = (mode: 'image' | 'description') => {
     setReportMode(mode);
     setCurrentStep(2);
+    if (mode === 'description') {
+      setDescriptionTab('ai-input');
+    }
     
     toast({
       title: mode === 'image' ? "Image Mode Selected" : "Description Mode Selected",
@@ -555,6 +716,7 @@ const ReportForm = () => {
     setMlResult(null);
     setShowMlSuggestions(false);
     setAppliedSuggestions(new Set());
+    setDescriptionTab('ai-input');
   };
   
   // =========================================================================
@@ -703,62 +865,132 @@ const ReportForm = () => {
         </div>
       </div>
       
-      {/* AI Auto-Fill Card */}
-      <Card className="mb-6 border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50">
-        <CardContent className="py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg shadow-sm ${
-                reportMode === 'image' && roboflowAvailable
-                  ? 'bg-gradient-to-br from-blue-500 to-purple-600'
-                  : aiMode === 'nvidia' 
-                    ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
-                    : aiMode === 'gemini' 
-                      ? 'bg-gradient-to-br from-purple-500 to-indigo-600' 
-                      : 'bg-gradient-to-br from-blue-500 to-blue-600'
-              }`}>
-                {reportMode === 'image' && roboflowAvailable ? (
-                  <Camera className="h-5 w-5 text-white" />
-                ) : aiMode === 'nvidia' ? (
-                  <Zap className="h-5 w-5 text-white" />
-                ) : aiMode === 'gemini' ? (
-                  <Zap className="h-5 w-5 text-white" />
+      {/* AI section is now mode-specific to keep image/text flows independent */}
+      {reportMode === 'description' ? (
+        <Tabs value={descriptionTab} onValueChange={(v) => setDescriptionTab(v as 'ai-input' | 'form')} className="mb-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="ai-input">AI Auto-fill Input</TabsTrigger>
+            <TabsTrigger value="form">Final Form</TabsTrigger>
+          </TabsList>
+          <TabsContent value="ai-input">
+            <Card className="mt-3 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg shadow-sm bg-gradient-to-br from-purple-500 to-indigo-600">
+                    <Zap className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">AI Auto-fill Input (Text)</h3>
+                    <p className="text-xs text-gray-500">Enter description here and run AI. Image attachment is required for submission but is not used for text analysis.</p>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="description-ai-input" className="text-base flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-blue-100 rounded-lg">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                    </div>
+                    Description for AI Auto-fill <span className="text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    id="description-ai-input"
+                    placeholder="Describe the issue for AI auto-fill..."
+                    rows={5}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className={`text-base resize-none ${errors.description ? "border-red-300 focus:ring-red-500" : "focus:ring-[#FF7722]"}`}
+                    disabled={isSubmitting}
+                  />
+                  <div className="flex justify-between mt-2">
+                    {errors.description ? (
+                      <p className="text-sm text-red-500 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        {errors.description}
+                      </p>
+                    ) : (
+                      <span className="text-xs text-gray-400">This text is the AI input source in description mode</span>
+                    )}
+                    <span className="text-xs text-gray-400">{description.length} characters</span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  className="w-full bg-[#FF7722] text-white hover:bg-[#E56610]"
+                  onClick={async () => {
+                    await runMlAnalysis('description', '', description);
+                    setDescriptionTab('form');
+                  }}
+                  disabled={isAnalyzing || isExtractingGPS || !description.trim()}
+                >
+                  {isAnalyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                  Analyze Description & Fill Form
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="form">
+            <Card className="mt-3 border-gray-200 bg-gray-50">
+              <CardContent className="py-4 text-sm text-gray-600">
+                Review and submit the auto-filled fields below. You can still edit anything before submitting.
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <Card className="mb-6 border-gray-200 bg-gradient-to-r from-gray-50 to-slate-50">
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg shadow-sm ${
+                  reportMode === 'image' && roboflowAvailable
+                    ? 'bg-gradient-to-br from-blue-500 to-purple-600'
+                    : aiMode === 'nvidia'
+                      ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+                      : aiMode === 'gemini'
+                        ? 'bg-gradient-to-br from-purple-500 to-indigo-600'
+                        : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                }`}>
+                  {reportMode === 'image' && roboflowAvailable ? (
+                    <Camera className="h-5 w-5 text-white" />
+                  ) : aiMode === 'nvidia' ? (
+                    <Zap className="h-5 w-5 text-white" />
+                  ) : aiMode === 'gemini' ? (
+                    <Zap className="h-5 w-5 text-white" />
+                  ) : (
+                    <Cpu className="h-5 w-5 text-white" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">AI Auto-Fill</h3>
+                  <p className="text-xs text-gray-500">
+                    {reportMode === 'image' && roboflowAvailable
+                      ? 'Using Roboflow ML for image analysis'
+                      : aiMode === 'nvidia'
+                        ? 'Using NVIDIA Llama Vision for analysis'
+                        : aiMode === 'gemini'
+                          ? 'Using Gemini AI for text analysis'
+                          : 'Using Local ML for analysis'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2 bg-[#FF7722] text-white border-[#FF7722] hover:bg-[#E56610] shadow-md font-medium"
+                onClick={triggerAiAnalysis}
+                disabled={isAnalyzing || isExtractingGPS || (!images.length && !description.trim() && imageFiles.length === 0)}
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Cpu className="h-5 w-5 text-white" />
+                  <Wand2 className="h-4 w-4" />
                 )}
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">AI Auto-Fill</h3>
-                <p className="text-xs text-gray-500">
-                  {reportMode === 'image' && roboflowAvailable
-                    ? 'Using Roboflow ML for image analysis'
-                    : aiMode === 'nvidia' 
-                      ? 'Using NVIDIA Llama Vision for analysis' 
-                      : aiMode === 'gemini' 
-                        ? 'Using Gemini AI for text analysis' 
-                        : 'Using Local ML for analysis'}
-                </p>
-              </div>
+                <span>Analyze & Auto-Fill</span>
+              </Button>
             </div>
-            
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 bg-[#FF7722] text-white border-[#FF7722] hover:bg-[#E56610] shadow-md font-medium"
-              onClick={triggerAiAnalysis}
-              disabled={isAnalyzing || isExtractingGPS || (!images.length && !description.trim() && imageFiles.length === 0)}
-            >
-              {isAnalyzing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4" />
-              )}
-              <span>Analyze & Auto-Fill</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ML Analysis Status */}
       {isAnalyzing && (
@@ -986,6 +1218,9 @@ const ReportForm = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+        {/* Image is first-class input in both modes, and required */}
+        {renderImagesSection()}
+
         {/* Title */}
         <Card className={`transition-all duration-200 ${errors.title ? 'border-red-300 shadow-red-100' : 'hover:shadow-md'}`}>
           <CardContent className="pt-6">
@@ -1012,37 +1247,39 @@ const ReportForm = () => {
           </CardContent>
         </Card>
         
-        {/* Description */}
-        <Card className={`transition-all duration-200 ${errors.description ? 'border-red-300 shadow-red-100' : 'hover:shadow-md'}`}>
-          <CardContent className="pt-6">
-            <Label htmlFor="description" className="text-base flex items-center gap-2 mb-3">
-              <div className="p-1.5 bg-blue-100 rounded-lg">
-                <FileText className="h-4 w-4 text-blue-600" />
+        {/* Description is part of image-mode form; description-mode uses AI input tab above */}
+        {reportMode === 'image' && (
+          <Card className={`transition-all duration-200 ${errors.description ? 'border-red-300 shadow-red-100' : 'hover:shadow-md'}`}>
+            <CardContent className="pt-6">
+              <Label htmlFor="description" className="text-base flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                </div>
+                Description <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="description"
+                placeholder="Provide detailed information about the issue. Include any relevant details that would help in resolving it..."
+                rows={5}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className={`text-base resize-none ${errors.description ? "border-red-300 focus:ring-red-500" : "focus:ring-[#FF7722]"}`}
+                disabled={isSubmitting}
+              />
+              <div className="flex justify-between mt-2">
+                {errors.description ? (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {errors.description}
+                  </p>
+                ) : (
+                  <span className="text-xs text-gray-400">Be as descriptive as possible</span>
+                )}
+                <span className="text-xs text-gray-400">{description.length} characters</span>
               </div>
-              Description <span className="text-red-500">*</span>
-            </Label>
-            <Textarea
-              id="description"
-              placeholder="Provide detailed information about the issue. Include any relevant details that would help in resolving it..."
-              rows={5}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className={`text-base resize-none ${errors.description ? "border-red-300 focus:ring-red-500" : "focus:ring-[#FF7722]"}`}
-              disabled={isSubmitting}
-            />
-            <div className="flex justify-between mt-2">
-              {errors.description ? (
-                <p className="text-sm text-red-500 flex items-center gap-1">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  {errors.description}
-                </p>
-              ) : (
-                <span className="text-xs text-gray-400">Be as descriptive as possible</span>
-              )}
-              <span className="text-xs text-gray-400">{description.length} characters</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
         
         {/* Category */}
         <Card className={`transition-all duration-200 ${errors.category ? 'border-red-300 shadow-red-100' : 'hover:shadow-md'}`}>
@@ -1183,132 +1420,7 @@ const ReportForm = () => {
           </CardContent>
         </Card>
         
-        {/* Images */}
-        <Card className="transition-all duration-200 hover:shadow-md">
-          <CardContent className="pt-6">
-            <Label className="text-base flex items-center gap-2 mb-3">
-              <div className="p-1.5 bg-pink-100 rounded-lg">
-                <Camera className="h-4 w-4 text-pink-600" />
-              </div>
-              Add Images
-              {reportMode === 'image' && (
-                <Badge variant="outline" className="ml-2 text-xs bg-green-50 border-green-500 text-green-700">
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  AI will analyze this
-                </Badge>
-              )}
-            </Label>
-            
-            {/* File Upload Button - available in both modes */}
-            <div className="mb-4">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                ref={fileInputRef}
-                className="hidden"
-                id="image-upload"
-                disabled={isSubmitting || isExtractingGPS || isAnalyzing}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className={`w-full border-2 border-dashed ${
-                  reportMode === 'image'
-                    ? 'border-blue-300 hover:border-blue-500 hover:bg-blue-50'
-                    : 'border-purple-300 hover:border-purple-500 hover:bg-purple-50'
-                }`}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSubmitting || isExtractingGPS || isAnalyzing}
-              >
-                {isExtractingGPS || isAnalyzing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <UploadIcon className="h-4 w-4 mr-2" />
-                )}
-                {isExtractingGPS ? "Extracting GPS..." : isAnalyzing ? "Analyzing..." : "Upload image file"}
-              </Button>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                {reportMode === 'image'
-                  ? 'Image mode: first image is analyzed automatically'
-                  : 'Description mode: images are attached only, analysis runs only when you click Analyze & Auto-Fill'}
-                {extractedGPS && (
-                  <span className="text-green-600 ml-1">
-                    • GPS extracted: {extractedGPS.lat.toFixed(4)}, {extractedGPS.lng.toFixed(4)}
-                  </span>
-                )}
-              </p>
-            </div>
-            
-            {/* URL Input (for description mode or fallback) */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Paste image URL here"
-                value={imageURL}
-                onChange={(e) => setImageURL(e.target.value)}
-                disabled={isSubmitting}
-                className="flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddImage();
-                  }
-                }}
-              />
-              <Button 
-                type="button" 
-                onClick={handleAddImage}
-                disabled={!imageURL.trim() || isSubmitting}
-                className="bg-[#FF7722] hover:bg-[#FF7722]/90"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Add
-              </Button>
-            </div>
-            
-            {/* Image previews */}
-            {images.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                {images.map((image, index) => (
-                  <div key={index} className="relative group rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-                    <div className="aspect-video">
-                      <img
-                        src={image}
-                        alt={`Issue image ${index + 1}`}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder.svg';
-                        }}
-                      />
-                    </div>
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="shadow-lg"
-                        onClick={() => handleRemoveImage(index)}
-                        disabled={isSubmitting}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                    <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-medium text-gray-600">
-                      {index + 1}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
-                <Camera className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">No images added yet</p>
-                <p className="text-gray-400 text-xs mt-1">Add image URLs to help illustrate the issue</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Image section moved to top for mode independence */}
         
         {/* Department Routing Info - Shows at end when category + pincode are set */}
         {assignedDepartment && (
